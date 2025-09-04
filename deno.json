@@ -1,0 +1,24 @@
+{
+	"tasks": {
+		"main": "deno run -R='.env,logs' -W='logs' -E='WS_NO_BUFFER_UTIL,NODE_V8_COVERAGE,UNDICI_NO_FG,JEST_WORKER_ID,SHARDS,SHARD_COUNT,SHARDING_MANAGER,DISCORD_TOKEN,TOKEN,MC_CHANNEL,HOST,PORT,GUILD_ID,APP_ID' -N='discord.com,gateway.discord.gg,127.0.0.1' --unstable-net bot.ts"
+	},
+	"imports": {
+		"@std/dotenv": "jsr:@std/dotenv@^0.225.5",
+		"@std/fs": "jsr:@std/fs@^1.0.19",
+		"@std/path": "jsr:@std/path@^1.1.2",
+		"binary-parser-encoder": "npm:binary-parser-encoder@^1.5.3",
+		"discord.js": "npm:discord.js@^14.22.1"
+	},
+	"fmt": {
+		"useTabs": true,
+		"lineWidth": 120,
+		"semiColons": true,
+		"exclude": [
+			"coverage",
+			"branches",
+			"logs",
+			"static"
+		],
+		"useBraces": "preferNone"
+	}
+}
