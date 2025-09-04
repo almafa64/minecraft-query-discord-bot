@@ -1,6 +1,6 @@
 {
 	"tasks": {
-		"main": "deno run -R='.env,logs' -W='logs' -E='WS_NO_BUFFER_UTIL,NODE_V8_COVERAGE,UNDICI_NO_FG,JEST_WORKER_ID,SHARDS,SHARD_COUNT,SHARDING_MANAGER,DISCORD_TOKEN,TOKEN,MC_CHANNEL,HOST,PORT,GUILD_ID,APP_ID' -N='discord.com,gateway.discord.gg,127.0.0.1' --unstable-net bot.ts"
+		"main": "deno run -R='.env,logs' -W='logs' -E='WS_NO_BUFFER_UTIL,NODE_V8_COVERAGE,UNDICI_NO_FG,JEST_WORKER_ID,SHARDS,SHARD_COUNT,SHARDING_MANAGER,DISCORD_TOKEN,TOKEN,MC_CHANNEL,HOST,PORT,GUILD_ID,APP_ID' -N --unstable-net bot.ts"
 	},
 	"imports": {
 		"@std/dotenv": "jsr:@std/dotenv@^0.225.5",
