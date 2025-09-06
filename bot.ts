@@ -160,9 +160,6 @@ commands.set("players", {
 		.setName("players")
 		.setDescription("Gets players from current appleMC server."),
 	execute: async (interaction) => {
-		const send_ch = get_channel();
-		if (!send_ch) return;
-
 		const status = await get_status(2);
 
 		if (!status) {

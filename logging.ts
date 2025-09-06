@@ -27,7 +27,7 @@ const LONGEST_TAG_LENGTH = Math.max(
 );
 
 function get_log_name() {
-	return "lastest.log";
+	return "latest.log";
 	/*
 	// z as in "zero pad", want to keep return short
 	const z = pad_number;
