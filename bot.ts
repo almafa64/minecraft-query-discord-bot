@@ -40,7 +40,7 @@ function human_readable_time_diff(diff_in_s: number) {
 	return out.join(" ");
 }
 
-function clear_colortags(tagged_name: string) {
+function clear_color_tags(tagged_name: string) {
 	let name = "";
 	let i = 0;
 
@@ -68,12 +68,12 @@ function get_channel() {
 	const ch = client.channels.cache.get(Deno.env.get("MC_CHANNEL") || "");
 	if (ch === undefined) {
 		log(LOG_TAGS.ERROR, "Cant find channel");
-		return;
+		return undefined;
 	}
 
 	if (!ch.isSendable) {
 		log(LOG_TAGS.ERROR, "Channel isnt sendable");
-		return;
+		return undefined;
 	}
 
 	return ch as SendableChannels;
@@ -85,14 +85,17 @@ async function check() {
 
 	const status = await get_status(1);
 
+	const cur_time = new Date();
+	const formatted_time = format_date(cur_time);
+
 	if (status)
-		states.name = clear_colortags(status.hostname);
+		states.name = clear_color_tags(status.hostname);
 
 	if (!states.is_server_up && status) {
-		send_ch.send(`server '${states.name}' is up!`);
+		send_ch.send(`server '${states.name}' is up (${formatted_time})!`);
 		states.is_server_up = true;
 	} else if (states.is_server_up && !status) {
-		send_ch.send(`server '${states.name}' is down!`);
+		send_ch.send(`server '${states.name}' is down (${formatted_time})!`);
 		states.is_server_up = false;
 		return;
 	}
@@ -102,8 +105,6 @@ async function check() {
 
 	if (status.players.length === states.last_players.size && status.players.every((v) => states.last_players.has(v)))
 		return;
-
-	const cur_time = new Date();
 
 	const cur_players = new Set(status.players);
 
@@ -121,10 +122,10 @@ async function check() {
 	let msg = "";
 
 	if (players_joined.length != 0)
-		msg += `**Player(s) joined** (${format_date(cur_time)}):\n- '${players_joined.join("'\n- '")}'\n`;
+		msg += `**Player(s) joined** (${formatted_time}):\n- '${players_joined.join("'\n- '")}'\n`;
 
 	if (players_left.length != 0) {
-		msg += `**Player(s) left** (${format_date(cur_time)}):\n`;
+		msg += `**Player(s) left** (${formatted_time}):\n`;
 		for (const [k, v] of zip(players_left, player_time_diff_s)) {
 			// INFO: human_readable_time_diff can return empty string if player joined and left under a second
 			msg += `- '${k}' (after ${human_readable_time_diff(v)} of gaming)\n`;
@@ -167,7 +168,7 @@ commands.set("players", {
 			return;
 		}
 
-		const name = clear_colortags(status.hostname);
+		const name = clear_color_tags(status.hostname);
 
 		if (status.players.length === 0) {
 			await interaction.reply(`**Current players on '${name}' (0/${status.maxplayers})**:`);
@@ -187,12 +188,10 @@ commands.forEach((v) => commands_json.push(v.data.toJSON()));
 
 const rest = new REST().setToken(Deno.env.get("TOKEN") || "");
 
-// and deploy your commands!
 (async () => {
 	try {
 		log(LOG_TAGS.INFO, `Started refreshing ${commands_json.length} application (/) commands.`);
 
-		// The put method is used to fully refresh all commands in the guild with the current set
 		const data = await rest.put(
 			Deno.env.has("GUILD_ID")
 				? Routes.applicationGuildCommands(Deno.env.get("APP_ID") || "", Deno.env.get("GUILD_ID") || "")
