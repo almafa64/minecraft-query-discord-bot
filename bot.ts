@@ -13,11 +13,32 @@ import {
 } from "npm:discord.js";
 import { get_status } from "./api.ts";
 import "jsr:@std/dotenv/load";
-import { log, LOG_TAGS } from "./logging.ts";
+import { format_date, log, LOG_TAGS } from "./logging.ts";
 
 const CHECK_INTERVAL = 5000;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+
+function zip<A, B>(a: A[], b: B[]) {
+	return a.map((v, i) => [v, b[i]] as [A, B]);
+}
+
+function human_readable_time_diff(diff_in_s: number) {
+	const hours = Math.floor(diff_in_s / 3600);
+	diff_in_s -= 3600 * hours;
+
+	const minutes = Math.floor(diff_in_s / 60);
+	diff_in_s -= 60 * minutes;
+
+	const seconds = Math.floor(diff_in_s);
+
+	const out = [];
+	if (hours > 0) out.push(`${hours}h`);
+	if (minutes > 0) out.push(`${minutes}m`);
+	if (seconds > 0) out.push(`${seconds}s`);
+
+	return out.join(" ");
+}
 
 function clear_colortags(tagged_name: string) {
 	let name = "";
@@ -39,7 +60,7 @@ function clear_colortags(tagged_name: string) {
 
 const states = {
 	is_server_up: false,
-	last_players: new Set<string>(),
+	last_players: new Map<string, number>(),
 	name: "",
 };
 
@@ -82,23 +103,38 @@ async function check() {
 	if (status.players.length === states.last_players.size && status.players.every((v) => states.last_players.has(v)))
 		return;
 
+	const cur_time = new Date();
+
 	const cur_players = new Set(status.players);
 
 	const players_joined = [...cur_players].filter((v) => !states.last_players.has(v));
-	const players_left = [...states.last_players].filter((v) => !cur_players.has(v));
+	const players_left = [...states.last_players.keys()].filter((v) => !cur_players.has(v));
+	const player_time_diff_s = players_left.map((v) => {
+		const join_time = states.last_players.get(v);
+		if (join_time === undefined) return -1;
+		return (cur_time.getTime() - join_time) / 1000;
+	});
 
-	states.last_players.clear();
-	status.players.forEach((v) => states.last_players.add(v));
+	players_left.forEach((v) => states.last_players.delete(v));
+	players_joined.forEach((v) => states.last_players.set(v, cur_time.getTime()));
 
 	let msg = "";
 
 	if (players_joined.length != 0)
-		msg += `**Player(s) joined**:\n- '${players_joined.join("'\n- '")}'`;
+		msg += `**Player(s) joined** (${format_date(cur_time)}):\n- '${players_joined.join("'\n- '")}'\n`;
 
-	if (players_left.length != 0)
-		msg += `**Player(s) left**:\n- '${players_left.join("'\n- '")}'`;
+	if (players_left.length != 0) {
+		msg += `**Player(s) left** (${format_date(cur_time)}):\n`;
+		for (const [k, v] of zip(players_left, player_time_diff_s)) {
+			// INFO: human_readable_time_diff can return empty string if player joined and left under a second
+			msg += `- '${k}' (after ${human_readable_time_diff(v)} of gaming)\n`;
+		}
+	}
 
-	msg += `\n**Current player count**: ${status.numplayers}/${status.maxplayers}`;
+	if (parseInt(status.numplayers) > 0)
+		msg += `**Current players**: '${cur_players.keys().toArray().join("', '")}'`;
+	else
+		msg += `Server is empty`;
 
 	send_ch.send(msg);
 }
