@@ -85,17 +85,17 @@ async function check() {
 
 	const status = await get_status(1);
 
-	const cur_time = new Date();
+	let cur_time = new Date();
 	const formatted_time = format_date(cur_time);
 
 	if (status)
 		states.name = clear_color_tags(status.hostname);
 
 	if (!states.is_server_up && status) {
-		send_ch.send(`server '${states.name}' is up (${formatted_time})!`);
+		await send_ch.send(`server '${states.name}' is up (${formatted_time})!`);
 		states.is_server_up = true;
 	} else if (states.is_server_up && !status) {
-		send_ch.send(`server '${states.name}' is down (${formatted_time})!`);
+		await send_ch.send(`server '${states.name}' is down (${formatted_time})!`);
 		states.is_server_up = false;
 		return;
 	}
@@ -106,6 +106,7 @@ async function check() {
 	if (status.players.length === states.last_players.size && status.players.every((v) => states.last_players.has(v)))
 		return;
 
+	cur_time = new Date();
 	const cur_players = new Set(status.players);
 
 	const players_joined = [...cur_players].filter((v) => !states.last_players.has(v));
