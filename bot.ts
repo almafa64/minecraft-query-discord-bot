@@ -171,16 +171,12 @@ commands.set("players", {
 
 		const name = clear_color_tags(status.hostname);
 
-		if (status.players.length === 0) {
-			await interaction.reply(`**Current players on '${name}' (0/${status.maxplayers})**:`);
-			return;
-		}
+		let out = `**Current players on '${name}' (${status.numplayers}/${status.maxplayers})**:`;
 
-		await interaction.reply(
-			`**Current players on '${name}' (${status.numplayers}/${status.maxplayers})**:\n- '${
-				status.players.join("'\n- '")
-			}'`,
-		);
+		if (status.players.length > 0)
+			out += `\n- '${status.players.join("'\n- '")}'`;
+
+		await interaction.reply(out);
 	},
 });
 
