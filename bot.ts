@@ -9,21 +9,83 @@ import {
 	RESTPostAPIChatInputApplicationCommandsJSONBody,
 	Routes,
 	SendableChannels,
+	SlashCommandBooleanOption,
 	SlashCommandBuilder,
-} from "npm:discord.js";
+	SlashCommandOptionsOnlyBuilder,
+} from "discord.js";
 import { get_status } from "./api.ts";
-import "jsr:@std/dotenv/load";
+import "@std/dotenv/load";
 import { format_date, log, LOG_TAGS } from "./logging.ts";
+import { DB, Row, RowObject } from "https://deno.land/x/sqlite/mod.ts";
 
 const CHECK_INTERVAL = 5000;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const db = new DB("player_data.sqlite");
+
+// TODO: store in-game time, connection counts?, avg time/session?
+//     - players talbe (names) -> sessions table (connect_time, disconnect_time) <-- can get count, avg time, total time even current
+//          - pass current time if disconnect_time is null when doing sums and things
+//          - after start check every record, if disconnect_time is null set last online date
+
+db.execute(`
+	create table if not exists players (
+		id integer primary key autoincrement,
+		name text not null unique
+	) strict
+`);
+
+db.execute(`
+	create table if not exists sessions (
+		player_id integer not null,
+		connect_time integer not null,
+		disconnect_time integer,
+		foreign key(player_id) references players(id)
+	) strict
+`);
+
+const insert_player = db.prepareQuery<Row, RowObject, { name: string }>(
+	"INSERT INTO players (name) VALUES (:name)",
+);
+
+const open_session = db.prepareQuery<Row, RowObject, { player_name: string; conn_time: number }>(
+	"INSERT INTO sessions (player_id, connect_time) VALUES ((select id from players where name = :player_name), :conn_time)",
+);
+const close_session = db.prepareQuery<Row, RowObject, { player_name: string; dis_conn_time: number }>(
+	"update sessions set disconnect_time = :dis_conn_time where player_id = (select id from players where name = :player_name) and disconnect_time is null",
+);
+
+const get_player = db.prepareQuery<[number, number], { time: number; count: number }, { time: number; name: string }>(
+	`SELECT COUNT(sessions.player_id) as count,
+	SUM((CASE WHEN sessions.disconnect_time is null then :time else sessions.disconnect_time end) - sessions.connect_time) as time
+	from players join sessions on sessions.player_id = players.id
+	where players.name = :name`,
+);
+
+const get_all_players = db.prepareQuery<
+	[string, number, number],
+	{ name: string; time: number; count: number },
+	{ time: number }
+>(
+	`SELECT players.name as name,
+	COUNT(sessions.player_id) as count,
+	SUM((CASE WHEN sessions.disconnect_time is null then :time else sessions.disconnect_time end) - sessions.connect_time) as time
+	from players join sessions on sessions.player_id = players.id
+	group by players.id`,
+);
+
+// TODO: temporary, bot can run way after the last server shutdown
+db.execute(`UPDATE sessions set disconnect_time = ${get_current_seconds()} where disconnect_time is null`)
 
 function zip<A, B>(a: A[], b: B[]) {
 	return a.map((v, i) => [v, b[i]] as [A, B]);
 }
 
+function get_current_seconds(date: Date | undefined = undefined) { return Math.floor((date || new Date()).getTime() / 1000); }
+
 function human_readable_time_diff(diff_in_s: number) {
+	if (diff_in_s < 0) return diff_in_s;
+
 	const hours = Math.floor(diff_in_s / 3600);
 	diff_in_s -= 3600 * hours;
 
@@ -85,7 +147,8 @@ async function check() {
 
 	const status = await get_status(1);
 
-	let cur_time = new Date();
+	const cur_time = new Date();
+	const cur_seconds = get_current_seconds(cur_time);
 	const formatted_time = format_date(cur_time);
 
 	if (status)
@@ -106,19 +169,35 @@ async function check() {
 	if (status.players.length === states.last_players.size && status.players.every((v) => states.last_players.has(v)))
 		return;
 
-	cur_time = new Date();
 	const cur_players = new Set(status.players);
 
 	const players_joined = [...cur_players].filter((v) => !states.last_players.has(v));
 	const players_left = [...states.last_players.keys()].filter((v) => !cur_players.has(v));
+
 	const player_time_diff_s = players_left.map((v) => {
 		const join_time = states.last_players.get(v);
 		if (join_time === undefined) return -1;
-		return (cur_time.getTime() - join_time) / 1000;
+		return cur_seconds - join_time;
 	});
 
-	players_left.forEach((v) => states.last_players.delete(v));
-	players_joined.forEach((v) => states.last_players.set(v, cur_time.getTime()));
+	players_left.forEach((v, i) => {
+		states.last_players.delete(v);
+
+		close_session.execute({ player_name: v, dis_conn_time: cur_seconds });
+	});
+
+	players_joined.forEach((v) => {
+		states.last_players.set(v, cur_seconds);
+
+		const player_data = get_player.firstEntry({ name: v, time: cur_seconds });
+
+		if (player_data === undefined || player_data.time === null) {
+			insert_player.execute({ name: v });
+			open_session.execute({ conn_time: cur_seconds, player_name: v });
+		} else {
+			open_session.execute({ conn_time: cur_seconds, player_name: v });
+		}
+	});
 
 	let msg = "";
 
@@ -138,7 +217,7 @@ async function check() {
 	else
 		msg += `Server is empty`;
 
-	send_ch.send(msg);
+	await send_ch.send(msg);
 }
 
 client.once(Events.ClientReady, (client) => {
@@ -151,7 +230,7 @@ client.once(Events.ClientReady, (client) => {
 });
 
 interface Command {
-	data: SlashCommandBuilder;
+	data: SlashCommandOptionsOnlyBuilder;
 	execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
 
@@ -159,6 +238,12 @@ const commands = new Collection<string, Command>();
 
 commands.set("players", {
 	data: new SlashCommandBuilder()
+		.addBooleanOption(
+			new SlashCommandBooleanOption().setName("all_players").setDescription("show all players (even offline ones)?"),
+		)
+		.addBooleanOption(
+			new SlashCommandBooleanOption().setName("join_count").setDescription("show join counts for players?"),
+		)
 		.setName("players")
 		.setDescription("Gets players from current appleMC server."),
 	execute: async (interaction) => {
@@ -169,12 +254,56 @@ commands.set("players", {
 			return;
 		}
 
-		const name = clear_color_tags(status.hostname);
+		const cur_seconds = get_current_seconds();
 
-		let out = `**Current players on '${name}' (${status.numplayers}/${status.maxplayers})**:`;
+		const server_name = clear_color_tags(status.hostname);
 
-		if (status.players.length > 0)
-			out += `\n- '${status.players.join("'\n- '")}'`;
+		const show_all = interaction.options.getBoolean("all_players", false) ?? false;
+		const show_counts = interaction.options.getBoolean("join_count", false) ?? false;
+
+		let out: string;
+
+		if (!show_all) {
+			out = `**Current players on '${server_name}' (${status.numplayers}/${status.maxplayers})**:`;
+			for (const name of status.players) {
+				let diff_in_s = -1;
+				let total_s = -1;
+				let count = -1;
+
+				const join_time = states.last_players.get(name);
+				if (join_time)
+					diff_in_s = cur_seconds - join_time;
+
+				const player_data = get_player.firstEntry({ name: name, time: cur_seconds });
+				if (player_data) {
+					total_s = player_data.time;
+					count = player_data.count;
+				}
+
+				out += `\n- '${name}' (current online time: ${human_readable_time_diff(diff_in_s)}, total: ${
+					human_readable_time_diff(total_s)
+				}`;
+				out += show_counts ? `, joined ${count} times` : "";
+				out += ")";
+			}
+		} else {
+			out = `**All players on '${server_name}'**:`;
+			const db_players = get_all_players.allEntries({ time: cur_seconds });
+
+			for (const player of db_players) {
+				let total_s = -1;
+				let count = -1;
+
+				if (player) {
+					total_s = player.time;
+					count = player.count;
+				}
+
+				out += `\n- '${player.name}' (total: ${human_readable_time_diff(total_s)}`;
+				out += show_counts ? `, joined ${count} times` : "";
+				out += ")";
+			}
+		}
 
 		await interaction.reply(out);
 	},
@@ -237,4 +366,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
 	}
 });
 
-client.login(Deno.env.get("TOKEN"));
+await client.login(Deno.env.get("TOKEN"));
