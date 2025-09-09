@@ -23,11 +23,6 @@ const CHECK_INTERVAL = 5000;
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 const db = new DB("player_data.sqlite");
 
-// TODO: store in-game time, connection counts?, avg time/session?
-//     - players talbe (names) -> sessions table (connect_time, disconnect_time) <-- can get count, avg time, total time even current
-//          - pass current time if disconnect_time is null when doing sums and things
-//          - after start check every record, if disconnect_time is null set last online date
-
 db.execute(`
 	create table if not exists players (
 		id integer primary key autoincrement,
@@ -76,7 +71,7 @@ const get_all_players = db.prepareQuery<
 
 const get_not_disconnected_players = db.prepareQuery<
 	[string, number],
-	{ name: string; connect_time: number; },
+	{ name: string; connect_time: number },
 	QueryParameterSet
 >(
 	`SELECT players.name as name,
@@ -103,11 +98,17 @@ const states = {
 // TODO: temporary, bot can run way after the last server shutdown
 //db.execute(`UPDATE sessions set disconnect_time = ${get_current_seconds()} where disconnect_time is null`);
 
+// TODO: (WIP)
+//     continue from last counting
+//          - power outage / bot goes down -> players dont disconnet -> next start can be hours/days later so players have been "online" for that time
+//          - better solution: write to file last check() time
+//                if only x time (seconds/few minutes) has passed after restart
+//                    load in players from db and continue, else close sessions
 const tmp_status = await get_status(3);
-if(tmp_status) {
+if (tmp_status) {
 	states.is_server_up = true;
 	states.name = clear_color_tags(tmp_status.hostname);
-	get_not_disconnected_players.allEntries().forEach(v => {
+	get_not_disconnected_players.allEntries().forEach((v) => {
 		states.last_players.set(v.name, v.connect_time);
 	});
 }
