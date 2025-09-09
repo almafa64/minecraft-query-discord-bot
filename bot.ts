@@ -74,6 +74,18 @@ const get_all_players = db.prepareQuery<
 	group by players.id`,
 );
 
+const get_not_disconnected_players = db.prepareQuery<
+	[string, number],
+	{ name: string; connect_time: number; },
+	QueryParameterSet
+>(
+	`SELECT players.name as name,
+	sessions.connect_time as connect_time
+	from players join sessions on sessions.player_id = players.id
+	where sessions.disconnect_time is null
+	group by players.id`,
+);
+
 const get_all_not_yet_players = db.prepareQuery<
 	[string],
 	{ name: string },
@@ -82,8 +94,23 @@ const get_all_not_yet_players = db.prepareQuery<
 	`SELECT name from players left join sessions on sessions.player_id = players.id where sessions.player_id is null;`,
 );
 
+const states = {
+	is_server_up: false,
+	last_players: new Map<string, number>(),
+	name: "",
+};
+
 // TODO: temporary, bot can run way after the last server shutdown
-db.execute(`UPDATE sessions set disconnect_time = ${get_current_seconds()} where disconnect_time is null`);
+//db.execute(`UPDATE sessions set disconnect_time = ${get_current_seconds()} where disconnect_time is null`);
+
+const tmp_status = await get_status(3);
+if(tmp_status) {
+	states.is_server_up = true;
+	states.name = clear_color_tags(tmp_status.hostname);
+	get_not_disconnected_players.allEntries().forEach(v => {
+		states.last_players.set(v.name, v.connect_time);
+	});
+}
 
 function zip<A, B>(a: A[], b: B[]) {
 	return a.map((v, i) => [v, b[i]] as [A, B]);
@@ -129,12 +156,6 @@ function clear_color_tags(tagged_name: string) {
 
 	return name;
 }
-
-const states = {
-	is_server_up: false,
-	last_players: new Map<string, number>(),
-	name: "",
-};
 
 function get_channel() {
 	const ch = client.channels.cache.get(Deno.env.get("MC_CHANNEL") || "");
