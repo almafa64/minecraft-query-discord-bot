@@ -51,8 +51,8 @@ const insert_player = db.prepareQuery<Row, RowObject, { name: string }>(
 const open_session = db.prepareQuery<Row, RowObject, { player_name: string; conn_time: number }>(
 	"INSERT INTO sessions (player_id, connect_time) VALUES ((select id from players where name = :player_name), :conn_time)",
 );
-const close_session = db.prepareQuery<Row, RowObject, { player_name: string; dis_conn_time: number }>(
-	"update sessions set disconnect_time = :dis_conn_time where player_id = (select id from players where name = :player_name) and disconnect_time is null",
+const close_session = db.prepareQuery<Row, RowObject, { player_name: string; disconnect_time: number }>(
+	"update sessions set disconnect_time = :disconnect_time where player_id = (select id from players where name = :player_name) and disconnect_time is null",
 );
 
 const get_player = db.prepareQuery<[number, number], { time: number; count: number }, { time: number; name: string }>(
@@ -75,13 +75,15 @@ const get_all_players = db.prepareQuery<
 );
 
 // TODO: temporary, bot can run way after the last server shutdown
-db.execute(`UPDATE sessions set disconnect_time = ${get_current_seconds()} where disconnect_time is null`)
+db.execute(`UPDATE sessions set disconnect_time = ${get_current_seconds()} where disconnect_time is null`);
 
 function zip<A, B>(a: A[], b: B[]) {
 	return a.map((v, i) => [v, b[i]] as [A, B]);
 }
 
-function get_current_seconds(date: Date | undefined = undefined) { return Math.floor((date || new Date()).getTime() / 1000); }
+function get_current_seconds(date: Date | undefined = undefined) {
+	return Math.floor((date || new Date()).getTime() / 1000);
+}
 
 function human_readable_time_diff(diff_in_s: number) {
 	if (diff_in_s < 0) return diff_in_s;
@@ -145,7 +147,7 @@ async function check() {
 	const send_ch = get_channel();
 	if (!send_ch) return;
 
-	const status = await get_status(1);
+	let status = await get_status(1);
 
 	const cur_time = new Date();
 	const cur_seconds = get_current_seconds(cur_time);
@@ -160,7 +162,23 @@ async function check() {
 	} else if (states.is_server_up && !status) {
 		await send_ch.send(`server '${states.name}' is down (${formatted_time})!`);
 		states.is_server_up = false;
-		return;
+
+		// INFO: fabricate own status so player left code can be reused
+		status = {
+			"type": 0,
+			"id": 0,
+			"hostname": states.name,
+			"gametype": "",
+			"game_id": "",
+			"version": "",
+			"plugins": "",
+			"map": "",
+			"numplayers": "0",
+			"maxplayers": "",
+			"hostport": "",
+			"hostip": "",
+			"players": [],
+		};
 	}
 
 	if (!status)
@@ -180,10 +198,10 @@ async function check() {
 		return cur_seconds - join_time;
 	});
 
-	players_left.forEach((v, i) => {
+	players_left.forEach((v) => {
 		states.last_players.delete(v);
 
-		close_session.execute({ player_name: v, dis_conn_time: cur_seconds });
+		close_session.execute({ player_name: v, disconnect_time: cur_seconds });
 	});
 
 	players_joined.forEach((v) => {
