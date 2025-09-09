@@ -16,7 +16,7 @@ import {
 import { get_status } from "./api.ts";
 import "@std/dotenv/load";
 import { format_date, log, LOG_TAGS } from "./logging.ts";
-import { DB, Row, RowObject } from "https://deno.land/x/sqlite/mod.ts";
+import { DB, QueryParameterSet, Row, RowObject } from "https://deno.land/x/sqlite/mod.ts";
 
 const CHECK_INTERVAL = 5000;
 
@@ -72,6 +72,14 @@ const get_all_players = db.prepareQuery<
 	SUM((CASE WHEN sessions.disconnect_time is null then :time else sessions.disconnect_time end) - sessions.connect_time) as time
 	from players join sessions on sessions.player_id = players.id
 	group by players.id`,
+);
+
+const get_all_not_yet_players = db.prepareQuery<
+	[string],
+	{ name: string },
+	QueryParameterSet
+>(
+	`SELECT name from players left join sessions on sessions.player_id = players.id where sessions.player_id is null;`,
 );
 
 // TODO: temporary, bot can run way after the last server shutdown
@@ -220,11 +228,11 @@ async function check() {
 	let msg = "";
 
 	if (players_joined.length != 0)
-		msg += `**Player(s) joined** (${formatted_time}):\n- '${players_joined.sort().join("'\n- '")}'\n`;
+		msg += `**Player(s) joined** (${formatted_time}):\n- '${players_joined.toSorted().join("'\n- '")}'\n`;
 
 	if (players_left.length != 0) {
 		msg += `**Player(s) left** (${formatted_time}):\n`;
-		for (const [k, v] of zip(players_left, player_time_diff_s).sort((a, b) => a[1] - b[1])) {
+		for (const [k, v] of zip(players_left, player_time_diff_s).toSorted((a, b) => a[1] - b[1])) {
 			// INFO: human_readable_time_diff can return empty string if player joined and left under a second
 			msg += `- '${k}' (after ${human_readable_time_diff(v)} of gaming)\n`;
 		}
@@ -309,7 +317,7 @@ commands.set("players", {
 			out = `**All players on '${server_name}'**:`;
 			const db_players = get_all_players.allEntries({ time: cur_seconds });
 
-			for (const player of db_players.sort((a, b) => a.time - b.time)) {
+			for (const player of db_players.toSorted((a, b) => a.time - b.time)) {
 				let total_s = -1;
 				let count = -1;
 
@@ -320,6 +328,13 @@ commands.set("players", {
 
 				out += `\n- '${player.name}' (total: ${human_readable_time_diff(total_s)}`;
 				out += show_counts ? `, joined ${count} times` : "";
+				out += ")";
+			}
+
+			const db_not_yet_players = get_all_not_yet_players.all().map((v) => v[0]);
+			for (const player of db_not_yet_players) {
+				out += `\n- '${player}' (total: never player`;
+				out += show_counts ? `, joined 0 times` : "";
 				out += ")";
 			}
 		}
