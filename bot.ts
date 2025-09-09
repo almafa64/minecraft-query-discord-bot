@@ -220,18 +220,18 @@ async function check() {
 	let msg = "";
 
 	if (players_joined.length != 0)
-		msg += `**Player(s) joined** (${formatted_time}):\n- '${players_joined.join("'\n- '")}'\n`;
+		msg += `**Player(s) joined** (${formatted_time}):\n- '${players_joined.sort().join("'\n- '")}'\n`;
 
 	if (players_left.length != 0) {
 		msg += `**Player(s) left** (${formatted_time}):\n`;
-		for (const [k, v] of zip(players_left, player_time_diff_s)) {
+		for (const [k, v] of zip(players_left, player_time_diff_s).sort((a, b) => a[1] - b[1])) {
 			// INFO: human_readable_time_diff can return empty string if player joined and left under a second
 			msg += `- '${k}' (after ${human_readable_time_diff(v)} of gaming)\n`;
 		}
 	}
 
 	if (parseInt(status.numplayers) > 0)
-		msg += `**Current players**: '${cur_players.keys().toArray().join("', '")}'`;
+		msg += `**Current players**: '${status.players.toSorted().join("', '")}'`;
 	else
 		msg += `Server is empty`;
 
@@ -283,6 +283,7 @@ commands.set("players", {
 
 		if (!show_all) {
 			out = `**Current players on '${server_name}' (${status.numplayers}/${status.maxplayers})**:`;
+			// TODO: sort this by time
 			for (const name of status.players) {
 				let diff_in_s = -1;
 				let total_s = -1;
@@ -308,7 +309,7 @@ commands.set("players", {
 			out = `**All players on '${server_name}'**:`;
 			const db_players = get_all_players.allEntries({ time: cur_seconds });
 
-			for (const player of db_players) {
+			for (const player of db_players.sort((a, b) => a.time - b.time)) {
 				let total_s = -1;
 				let count = -1;
 
