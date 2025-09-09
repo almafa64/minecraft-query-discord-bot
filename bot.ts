@@ -253,7 +253,7 @@ async function check() {
 
 	if (players_left.length != 0) {
 		msg += `**Player(s) left** (${formatted_time}):\n`;
-		for (const [k, v] of zip(players_left, player_time_diff_s).toSorted((a, b) => a[1] - b[1])) {
+		for (const [k, v] of zip(players_left, player_time_diff_s).toSorted((a, b) => b[1] - a[1])) {
 			// INFO: human_readable_time_diff can return empty string if player joined and left under a second
 			msg += `- '${k}' (after ${human_readable_time_diff(v)} of gaming)\n`;
 		}
@@ -338,7 +338,7 @@ commands.set("players", {
 			out = `**All players on '${server_name}'**:`;
 			const db_players = get_all_players.allEntries({ time: cur_seconds });
 
-			for (const player of db_players.toSorted((a, b) => a.time - b.time)) {
+			for (const player of db_players.toSorted((a, b) => b.time - a.time)) {
 				let total_s = -1;
 				let count = -1;
 
