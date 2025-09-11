@@ -174,19 +174,29 @@ function clear_color_tags(tagged_name: string) {
 	return name;
 }
 
+let ch: SendableChannels | undefined;
 async function get_channel() {
-	const ch = client.channels.cache.get(Deno.env.get("MC_CHANNEL") || "");
-	if (ch === undefined) {
-		await log(LOG_TAGS.ERROR, `Cant find '${Deno.env.get("MC_CHANNEL")}' channel`);
+	if (ch) return ch;
+
+	const send_ch = client.channels.cache.get(Deno.env.get("MC_CHANNEL") || "");
+	if (send_ch === undefined) {
+		await log(LOG_TAGS.WARNING, `Cant find '${Deno.env.get("MC_CHANNEL")}' channel. Turning off notification system.`);
 		return undefined;
 	}
 
-	if (!ch.isSendable) {
-		await log(LOG_TAGS.ERROR, `Channel '${Deno.env.get("MC_CHANNEL")}' isnt sendable`);
+	if (!send_ch.isSendable) {
+		await log(
+			LOG_TAGS.WARNING,
+			`Channel '${Deno.env.get("MC_CHANNEL")}' isnt sendable. Turning off notification system.`,
+		);
 		return undefined;
 	}
 
-	return ch as SendableChannels;
+	ch = send_ch as SendableChannels;
+	// TODO: get name
+	await log(LOG_TAGS.INFO, `Using channel '${ch.id}' for notifications.`);
+
+	return ch;
 }
 
 async function check() {
@@ -287,10 +297,12 @@ async function check() {
 client.once(Events.ClientReady, async (client) => {
 	await log(LOG_TAGS.INFO, `logged in as ${client.user.tag}`);
 
-	setTimeout(async function test() {
-		await check();
-		setTimeout(test, CHECK_INTERVAL);
-	}, CHECK_INTERVAL);
+	if (await get_channel()) {
+		setTimeout(async function test() {
+			await check();
+			setTimeout(test, CHECK_INTERVAL);
+		}, CHECK_INTERVAL);
+	}
 });
 
 interface Command {
@@ -376,7 +388,7 @@ commands.set("players", {
 
 			const db_not_yet_players = get_all_not_yet_players.all().map((v) => v[0]);
 			for (const player of db_not_yet_players) {
-				out += `\n1. **${player}** (total: never player`;
+				out += `\n1. **${player}** (total: never played`;
 				out += show_counts ? `, joined 0 times, 0h/session` : "";
 				out += ")";
 			}

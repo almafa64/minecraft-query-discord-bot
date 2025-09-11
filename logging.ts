@@ -18,7 +18,7 @@ export function format_date(date: Date) {
 
 export enum LOG_TAGS {
 	INFO = "info",
-	WARNING = "warning",
+	WARNING = "warn",
 	ERROR = "error",
 }
 
