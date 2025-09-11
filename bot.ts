@@ -329,7 +329,7 @@ commands.set("players", {
 					count = player_data.count;
 				}
 
-				out += `\n- '${name}' (current online time: ${human_readable_time_diff(diff_in_s)}, total: ${
+				out += `\n1. **${name}** (current online time: ${human_readable_time_diff(diff_in_s)}, total: ${
 					human_readable_time_diff(total_s)
 				}`;
 				out += show_counts ? `, joined ${count} times` : "";
@@ -348,14 +348,14 @@ commands.set("players", {
 					count = player.count;
 				}
 
-				out += `\n- '${player.name}' (total: ${human_readable_time_diff(total_s)}`;
+				out += `\n1. **${player.name}** (total: ${human_readable_time_diff(total_s)}`;
 				out += show_counts ? `, joined ${count} times` : "";
 				out += ")";
 			}
 
 			const db_not_yet_players = get_all_not_yet_players.all().map((v) => v[0]);
 			for (const player of db_not_yet_players) {
-				out += `\n- '${player}' (total: never player`;
+				out += `\n1. **${player}** (total: never played`;
 				out += show_counts ? `, joined 0 times` : "";
 				out += ")";
 			}
