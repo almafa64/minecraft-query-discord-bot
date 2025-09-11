@@ -39,6 +39,13 @@ db.execute(`
 	) strict
 `);
 
+db.execute(`
+	create table if not exists server_sessions (
+		connect_time integer not null,
+		disconnect_time integer
+	) strict
+`);
+
 const insert_player = db.prepareQuery<Row, RowObject, { name: string }>(
 	"INSERT INTO players (name) VALUES (:name)",
 );
@@ -94,6 +101,27 @@ const get_all_not_yet_players = db.prepareQuery<
 	`SELECT name from players left join sessions on sessions.player_id = players.id where sessions.player_id is null;`,
 );
 
+const server_open_session = db.prepareQuery<Row, RowObject, { conn_time: number }>(
+	"INSERT INTO server_sessions (connect_time) VALUES (:conn_time)",
+);
+const server_close_session = db.prepareQuery<Row, RowObject, { disconnect_time: number }>(
+	"update server_sessions set disconnect_time = :disconnect_time where disconnect_time is null",
+);
+
+const get_server = db.prepareQuery<
+	[number, number],
+	{ time: number; count: number },
+	{ time: number }
+>(
+	`SELECT COUNT(connect_time) as count,
+	SUM((CASE WHEN disconnect_time is null then :time else disconnect_time end) - connect_time) as time
+	from server_sessions`,
+);
+
+const get_server_last_conn = db.prepareQuery<[number], { time: number }, QueryParameterSet>(
+	`select max(connect_time) as time from server_sessions`,
+);
+
 const states = {
 	is_server_up: false,
 	last_players: new Map<string, number>(),
@@ -123,7 +151,7 @@ function zip<A, B>(a: A[], b: B[]) {
 }
 
 function get_current_seconds(date: Date | undefined = undefined) {
-	return Math.floor((date || new Date()).getTime() / 1000);
+	return Math.floor((date ?? new Date()).getTime() / 1000);
 }
 
 function human_readable_time(s: number) {
@@ -178,7 +206,7 @@ let ch: SendableChannels | undefined;
 async function get_channel() {
 	if (ch) return ch;
 
-	const send_ch = client.channels.cache.get(Deno.env.get("MC_CHANNEL") || "");
+	const send_ch = client.channels.cache.get(Deno.env.get("MC_CHANNEL") ?? "");
 	if (send_ch === undefined) {
 		await log(LOG_TAGS.WARNING, `Cant find '${Deno.env.get("MC_CHANNEL")}' channel. Turning off notification system.`);
 		return undefined;
@@ -213,11 +241,20 @@ async function check() {
 		states.name = clear_color_tags(status.hostname);
 
 	if (!states.is_server_up && status) {
-		await send_ch.send(`server '${states.name}' is up (${formatted_time})!`);
 		states.is_server_up = true;
+		server_open_session.execute({ conn_time: cur_seconds });
+
+		await send_ch.send(`server **${states.name}** is **up** (${formatted_time})!`);
 	} else if (states.is_server_up && !status) {
-		await send_ch.send(`server '${states.name}' is down (${formatted_time})!`);
 		states.is_server_up = false;
+		server_close_session.execute({ disconnect_time: cur_seconds });
+
+		const server_last_up = get_server_last_conn.firstEntry();
+
+		let msg = `server **${states.name}** is **down** (${formatted_time})`;
+		if (server_last_up) msg += ` after ${human_readable_time(cur_seconds - server_last_up.time)}`;
+		msg += "!";
+		await send_ch.send(msg);
 
 		// INFO: fabricate own status so player left code can be reused
 		status = {
@@ -398,10 +435,59 @@ commands.set("players", {
 	},
 });
 
+commands.set("server", {
+	data: new SlashCommandBuilder()
+		.addBooleanOption(
+			new SlashCommandBooleanOption().setName("session_count").setDescription("show session count?"),
+		)
+		.setName("server")
+		.setDescription(
+			"Gets appleMC server data (current uptime, total uptime, session counts, avarage hour/session).",
+		),
+	execute: async (interaction) => {
+		const status = await get_status(2);
+
+		if (!status) {
+			await interaction.reply(`Server is offline!`);
+			return;
+		}
+
+		const cur_seconds = get_current_seconds();
+		const server_name = clear_color_tags(status.hostname);
+		const show_counts = interaction.options.getBoolean("session_count", false) ?? false;
+
+		let diff_in_s = -1;
+		let total_s = -1;
+		let count = -1;
+
+		const server_data = get_server.firstEntry({ time: cur_seconds });
+		const server_last_up = get_server_last_conn.firstEntry();
+
+		if (server_last_up)
+			diff_in_s = cur_seconds - server_last_up.time;
+
+		if (server_data) {
+			total_s = server_data.time;
+			count = server_data.count;
+		}
+
+		let out = `**Current status of '${server_name}'**:\n`;
+		out += `- **Current uptime**: ${human_readable_time(diff_in_s)}\n`;
+		out += `- **Total uptime**: ${human_readable_time(total_s)}`;
+
+		if (show_counts) {
+			out += `\n- **Session count**: ${count}\n`;
+			out += `- **Average hours/session**: ${readable_time(total_s / count)}h`;
+		}
+
+		await interaction.reply(out);
+	},
+});
+
 const commands_json: RESTPostAPIChatInputApplicationCommandsJSONBody[] = [];
 commands.forEach((v) => commands_json.push(v.data.toJSON()));
 
-const rest = new REST().setToken(Deno.env.get("TOKEN") || "");
+const rest = new REST().setToken(Deno.env.get("TOKEN") ?? "");
 
 (async () => {
 	try {
@@ -409,8 +495,8 @@ const rest = new REST().setToken(Deno.env.get("TOKEN") || "");
 
 		const data = await rest.put(
 			Deno.env.has("GUILD_ID")
-				? Routes.applicationGuildCommands(Deno.env.get("APP_ID") || "", Deno.env.get("GUILD_ID") || "")
-				: Routes.applicationCommands(Deno.env.get("APP_ID") || ""),
+				? Routes.applicationGuildCommands(Deno.env.get("APP_ID") ?? "", Deno.env.get("GUILD_ID") ?? "")
+				: Routes.applicationCommands(Deno.env.get("APP_ID") ?? ""),
 			{ body: commands_json },
 		) as unknown[];
 
