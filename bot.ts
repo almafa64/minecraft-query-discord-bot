@@ -174,15 +174,15 @@ function clear_color_tags(tagged_name: string) {
 	return name;
 }
 
-function get_channel() {
+async function get_channel() {
 	const ch = client.channels.cache.get(Deno.env.get("MC_CHANNEL") || "");
 	if (ch === undefined) {
-		log(LOG_TAGS.ERROR, "Cant find channel");
+		await log(LOG_TAGS.ERROR, `Cant find '${Deno.env.get("MC_CHANNEL")}' channel`);
 		return undefined;
 	}
 
 	if (!ch.isSendable) {
-		log(LOG_TAGS.ERROR, "Channel isnt sendable");
+		await log(LOG_TAGS.ERROR, `Channel '${Deno.env.get("MC_CHANNEL")}' isnt sendable`);
 		return undefined;
 	}
 
@@ -190,7 +190,7 @@ function get_channel() {
 }
 
 async function check() {
-	const send_ch = get_channel();
+	const send_ch = await get_channel();
 	if (!send_ch) return;
 
 	let status = await get_status(1);
@@ -284,8 +284,8 @@ async function check() {
 	await send_ch.send(msg);
 }
 
-client.once(Events.ClientReady, (client) => {
-	log(LOG_TAGS.INFO, `logged in as ${client.user.tag}`);
+client.once(Events.ClientReady, async (client) => {
+	await log(LOG_TAGS.INFO, `logged in as ${client.user.tag}`);
 
 	setTimeout(async function test() {
 		await check();
@@ -393,7 +393,7 @@ const rest = new REST().setToken(Deno.env.get("TOKEN") || "");
 
 (async () => {
 	try {
-		log(LOG_TAGS.INFO, `Started refreshing ${commands_json.length} application (/) commands.`);
+		await log(LOG_TAGS.INFO, `Started refreshing ${commands_json.length} application (/) commands.`);
 
 		const data = await rest.put(
 			Deno.env.has("GUILD_ID")
@@ -402,10 +402,10 @@ const rest = new REST().setToken(Deno.env.get("TOKEN") || "");
 			{ body: commands_json },
 		) as unknown[];
 
-		log(LOG_TAGS.INFO, `Successfully reloaded ${data.length} application (/) commands.`);
+		await log(LOG_TAGS.INFO, `Successfully reloaded ${data.length} application (/) commands.`);
 	} catch (error) {
 		if (error instanceof Error)
-			log(LOG_TAGS.ERROR, error.message);
+			await log(LOG_TAGS.ERROR, error.message);
 		else
 			console.error("BIG ERROR: ", error);
 	}
@@ -417,15 +417,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
 	const command = commands.get(interaction.commandName);
 
 	if (!command) {
-		log(LOG_TAGS.WARNING, `No command matching '${interaction.commandName}' was found.`);
+		await log(LOG_TAGS.WARNING, `No command matching '${interaction.commandName}' was found.`);
 		return;
 	}
+
+	await log(
+		LOG_TAGS.INFO,
+		`'${interaction.user.tag}' run '${interaction.commandName}' with options ${
+			JSON.stringify(interaction.options.data)
+		}`,
+	);
 
 	try {
 		await command.execute(interaction);
 	} catch (error) {
 		if (error instanceof Error)
-			log(LOG_TAGS.ERROR, error.message);
+			await log(LOG_TAGS.ERROR, error.message);
 		else
 			console.error("BIG ERROR: ", error);
 
