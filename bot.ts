@@ -50,8 +50,13 @@ const close_session = db.prepareQuery<Row, RowObject, { player_name: string; dis
 	"update sessions set disconnect_time = :disconnect_time where player_id = (select id from players where name = :player_name) and disconnect_time is null",
 );
 
-const get_player = db.prepareQuery<[number, number], { time: number; count: number }, { time: number; name: string }>(
-	`SELECT COUNT(sessions.player_id) as count,
+const get_player = db.prepareQuery<
+	[string, number, number],
+	{ name: string; time: number; count: number },
+	{ time: number; name: string }
+>(
+	`SELECT players.name as name,
+	COUNT(sessions.player_id) as count,
 	SUM((CASE WHEN sessions.disconnect_time is null then :time else sessions.disconnect_time end) - sessions.connect_time) as time
 	from players join sessions on sessions.player_id = players.id
 	where players.name = :name`,
@@ -121,16 +126,16 @@ function get_current_seconds(date: Date | undefined = undefined) {
 	return Math.floor((date || new Date()).getTime() / 1000);
 }
 
-function human_readable_time_diff(diff_in_s: number) {
-	if (diff_in_s < 0) return diff_in_s;
+function human_readable_time(s: number) {
+	if (s < 0) return s;
 
-	const hours = Math.floor(diff_in_s / 3600);
-	diff_in_s -= 3600 * hours;
+	const hours = Math.floor(s / 3600);
+	s -= 3600 * hours;
 
-	const minutes = Math.floor(diff_in_s / 60);
-	diff_in_s -= 60 * minutes;
+	const minutes = Math.floor(s / 60);
+	s -= 60 * minutes;
 
-	const seconds = Math.floor(diff_in_s);
+	const seconds = Math.floor(s);
 
 	const out = [];
 	if (hours > 0) out.push(`${hours}h`);
@@ -138,6 +143,17 @@ function human_readable_time_diff(diff_in_s: number) {
 	if (seconds > 0) out.push(`${seconds}s`);
 
 	return out.join(" ");
+}
+
+function readable_time(s: number, format: "h" | "m" | "s" = "h", digits = 2) {
+	switch (format) {
+		case "h":
+			return (s / 3600).toFixed(digits);
+		case "m":
+			return (s / 60).toFixed(digits);
+		case "s":
+			return s.toFixed(digits);
+	}
 }
 
 function clear_color_tags(tagged_name: string) {
@@ -250,18 +266,18 @@ async function check() {
 	let msg = "";
 
 	if (players_joined.length != 0)
-		msg += `**Player(s) joined** (${formatted_time}):\n- '${players_joined.toSorted().join("'\n- '")}'\n`;
+		msg += `**Player(s) joined** (${formatted_time}):\n- ${players_joined.toSorted().join("\n- ")}\n`;
 
 	if (players_left.length != 0) {
 		msg += `**Player(s) left** (${formatted_time}):\n`;
 		for (const [k, v] of zip(players_left, player_time_diff_s).toSorted((a, b) => b[1] - a[1])) {
 			// INFO: human_readable_time_diff can return empty string if player joined and left under a second
-			msg += `- '${k}' (after ${human_readable_time_diff(v)} of gaming)\n`;
+			msg += `- ${k} (after ${human_readable_time(v)} of gaming)\n`;
 		}
 	}
 
 	if (parseInt(status.numplayers) > 0)
-		msg += `**Current players**: '${status.players.toSorted().join("', '")}'`;
+		msg += `**Current players**: ${status.players.toSorted().join(", ")}`;
 	else
 		msg += `Server is empty`;
 
@@ -290,10 +306,12 @@ commands.set("players", {
 			new SlashCommandBooleanOption().setName("all_players").setDescription("show all players (even offline ones)?"),
 		)
 		.addBooleanOption(
-			new SlashCommandBooleanOption().setName("join_count").setDescription("show join counts for players?"),
+			new SlashCommandBooleanOption().setName("session_count").setDescription("show session counts for players?"),
 		)
 		.setName("players")
-		.setDescription("Gets players from current appleMC server."),
+		.setDescription(
+			"Gets players from appleMC server (current time, total time, session counts, avarage hour/session).",
+		),
 	execute: async (interaction) => {
 		const status = await get_status(2);
 
@@ -307,32 +325,35 @@ commands.set("players", {
 		const server_name = clear_color_tags(status.hostname);
 
 		const show_all = interaction.options.getBoolean("all_players", false) ?? false;
-		const show_counts = interaction.options.getBoolean("join_count", false) ?? false;
+		const show_counts = interaction.options.getBoolean("session_count", false) ?? false;
 
 		let out: string;
 
 		if (!show_all) {
 			out = `**Current players on '${server_name}' (${status.numplayers}/${status.maxplayers})**:`;
-			// TODO: sort this by time
-			for (const name of status.players) {
+
+			const db_players = status.players.map((v) => {
+				return get_player.firstEntry({ name: v, time: cur_seconds });
+			}).filter((v) => v !== undefined);
+
+			for (const player of db_players.toSorted((a, b) => b.time - a.time)) {
 				let diff_in_s = -1;
 				let total_s = -1;
 				let count = -1;
 
-				const join_time = states.last_players.get(name);
+				const join_time = states.last_players.get(player.name);
 				if (join_time)
 					diff_in_s = cur_seconds - join_time;
 
-				const player_data = get_player.firstEntry({ name: name, time: cur_seconds });
-				if (player_data) {
-					total_s = player_data.time;
-					count = player_data.count;
+				if (player) {
+					total_s = player.time;
+					count = player.count;
 				}
 
-				out += `\n1. **${name}** (current online time: ${human_readable_time_diff(diff_in_s)}, total: ${
-					human_readable_time_diff(total_s)
+				out += `\n1. **${player.name}** (current online time: ${human_readable_time(diff_in_s)}, total: ${
+					human_readable_time(total_s)
 				}`;
-				out += show_counts ? `, joined ${count} times` : "";
+				out += show_counts ? `, joined ${count} times, ${readable_time(total_s / count)}h/session` : "";
 				out += ")";
 			}
 		} else {
@@ -348,15 +369,15 @@ commands.set("players", {
 					count = player.count;
 				}
 
-				out += `\n1. **${player.name}** (total: ${human_readable_time_diff(total_s)}`;
-				out += show_counts ? `, joined ${count} times` : "";
+				out += `\n1. **${player.name}** (total: ${human_readable_time(total_s)}`;
+				out += show_counts ? `, joined ${count} times, ${readable_time(total_s / count)}h/session` : "";
 				out += ")";
 			}
 
 			const db_not_yet_players = get_all_not_yet_players.all().map((v) => v[0]);
 			for (const player of db_not_yet_players) {
-				out += `\n1. **${player}** (total: never played`;
-				out += show_counts ? `, joined 0 times` : "";
+				out += `\n1. **${player}** (total: never player`;
+				out += show_counts ? `, joined 0 times, 0h/session` : "";
 				out += ")";
 			}
 		}
