@@ -73,6 +73,11 @@ export interface Status {
 	players: string[];
 }
 
+/**
+ * Gets query status data from minecraft server on HOSTNAME:PORT
+ * @param id useful for multiple connections at same time, can be any number
+ * @returns status data of server or undefined after 2s of nothing
+ */
 export async function get_status(id: number) {
 	const listener = Deno.listenDatagram({
 		port: 0,

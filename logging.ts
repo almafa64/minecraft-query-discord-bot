@@ -39,20 +39,24 @@ function get_log_name() {
 
 let _log_file: Deno.FsFile | undefined = undefined;
 async function setup_logging() {
-	if (!_log_file) {
-		const LOGS_DIR_PATH = path.resolve("./logs");
+	if(_log_file) return _log_file;
 
-		await fs.ensureDir(LOGS_DIR_PATH);
-		_log_file = await Deno.open(path.join(LOGS_DIR_PATH, get_log_name()), {
-			write: true,
-			create: true,
-			truncate: true,
-		});
-	}
+	const LOGS_DIR_PATH = path.resolve("./logs");
+
+	await fs.ensureDir(LOGS_DIR_PATH);
+	_log_file = await Deno.open(path.join(LOGS_DIR_PATH, get_log_name()), {
+		write: true,
+		create: true,
+		truncate: true,
+	});
 
 	return _log_file;
 }
 
+/**
+ * Log msg to console and into a file
+ * @param file if undefined makes a custom log file (based on {@link get_log_name})
+ */
 export async function tee(msg: string, file?: Deno.FsFile) {
 	console.log(msg);
 
@@ -67,6 +71,9 @@ export async function tee(msg: string, file?: Deno.FsFile) {
 	}
 }
 
+/**
+ * Logs to console and log file in format `"[hhhh. mm. dd. hh:mm:ss] [<tag>]<padding space if needed> <job>"` (time is local timezone)
+ */
 export async function log(tag: LOG_TAGS, job: string) {
 	const date = new Date();
 	await tee(`[${format_date(date)}] [${tag}]${" ".padEnd(LONGEST_TAG_LENGTH - tag.length + 1)}${job}`);

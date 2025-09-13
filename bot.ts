@@ -16,9 +16,11 @@ import {
 import { get_status } from "./api.ts";
 import "@std/dotenv/load";
 import { format_date, log, LOG_TAGS } from "./logging.ts";
-import { DB, QueryParameterSet, Row, RowObject } from "https://deno.land/x/sqlite/mod.ts";
+import { DB, QueryParameterSet, Row, RowObject } from "sqlite";
 
 const CHECK_INTERVAL = 5000;
+
+const MC_CHANNEL = Deno.env.get("MC_CHANNEL");
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 const db = new DB("player_data.sqlite");
@@ -146,50 +148,70 @@ if (tmp_status) {
 	});
 }
 
+/**
+ * Zips 2 array into 1, b is trimmed to a.length
+ */
 function zip<A, B>(a: A[], b: B[]) {
 	return a.map((v, i) => [v, b[i]] as [A, B]);
 }
 
-function get_current_seconds(date: Date | undefined = undefined) {
+/**
+ * Returns seconds since UNIX epoch
+ * @param date date to use, default is current time
+ */
+function get_seconds(date?: Date) {
 	return Math.floor((date ?? new Date()).getTime() / 1000);
 }
 
-function human_readable_time(s: number) {
-	if (s < 0) return s;
+/**
+ * Returns seconds in a readable format in format `"xh ym zs"`  
+ * if part is 0 (e.g. h == 0) then it's left out
+ * @returns string in format `"xh ym zs"` or if seconds is negative `"error: <seconds>"`
+ */
+function human_readable_time(seconds: number) {
+	if (seconds < 0) return `error: ${seconds}`;
 
-	const hours = Math.floor(s / 3600);
-	s -= 3600 * hours;
+	const h = Math.floor(seconds / 3600);
+	seconds -= 3600 * h;
 
-	const minutes = Math.floor(s / 60);
-	s -= 60 * minutes;
+	const m = Math.floor(seconds / 60);
+	seconds -= 60 * m;
 
-	const seconds = Math.floor(s);
+	const s = Math.floor(seconds);
 
-	const out = [];
-	if (hours > 0) out.push(`${hours}h`);
-	if (minutes > 0) out.push(`${minutes}m`);
-	if (seconds > 0) out.push(`${seconds}s`);
+	const out: string[] = [];
+	if (h > 0) out.push(`${h}h`);
+	if (m > 0) out.push(`${m}m`);
+	if (s > 0) out.push(`${s}s`);
 
 	return out.join(" ");
 }
 
-function readable_time(s: number, format: "h" | "m" | "s" = "h", digits = 2) {
+/**
+ * Returns seconds converted to another unit rounded to digits as a string
+ * @param format time unit (default = "h")
+ * @param digits how many decimal digits should there be (default = 2)
+ */
+function readable_time(seconds: number, format: "h" | "m" | "s" = "h", digits = 2) {
 	switch (format) {
 		case "h":
-			return (s / 3600).toFixed(digits);
+			return (seconds / 3600).toFixed(digits);
 		case "m":
-			return (s / 60).toFixed(digits);
+			return (seconds / 60).toFixed(digits);
 		case "s":
-			return s.toFixed(digits);
+			return seconds.toFixed(digits);
 	}
 }
 
-function clear_color_tags(tagged_name: string) {
+/**
+ * Returns new string without minecraft color tags (§x)
+ */
+function clear_color_tags(tagged_string: string) {
 	let name = "";
 	let i = 0;
 
-	while (i < tagged_name.length) {
-		const chr = tagged_name[i];
+	while (i < tagged_string.length) {
+		const chr = tagged_string[i];
 		if (chr === "§") {
 			i += 2;
 			continue;
@@ -202,29 +224,32 @@ function clear_color_tags(tagged_name: string) {
 	return name;
 }
 
-let ch: SendableChannels | undefined;
+let _ch: SendableChannels | undefined;
+/**
+ * Gets discord channel to send notifications to
+ */
 async function get_channel() {
-	if (ch) return ch;
+	if (_ch) return _ch;
 
-	const send_ch = client.channels.cache.get(Deno.env.get("MC_CHANNEL") ?? "");
+	const send_ch = client.channels.cache.get(MC_CHANNEL ?? "");
 	if (send_ch === undefined) {
-		await log(LOG_TAGS.WARNING, `Cant find '${Deno.env.get("MC_CHANNEL")}' channel. Turning off notification system.`);
+		await log(LOG_TAGS.WARNING, `Cant find '${MC_CHANNEL}' channel. Turning off notification system.`);
 		return undefined;
 	}
 
 	if (!send_ch.isSendable) {
 		await log(
 			LOG_TAGS.WARNING,
-			`Channel '${Deno.env.get("MC_CHANNEL")}' isnt sendable. Turning off notification system.`,
+			`Channel '${MC_CHANNEL}' isnt sendable. Turning off notification system.`,
 		);
 		return undefined;
 	}
 
-	ch = send_ch as SendableChannels;
+	_ch = send_ch as SendableChannels;
 	// TODO: get name
-	await log(LOG_TAGS.INFO, `Using channel '${ch.id}' for notifications.`);
+	await log(LOG_TAGS.INFO, `Using channel '${_ch.id}' for notifications.`);
 
-	return ch;
+	return _ch;
 }
 
 async function check() {
@@ -234,7 +259,7 @@ async function check() {
 	let status = await get_status(1);
 
 	const cur_time = new Date();
-	const cur_seconds = get_current_seconds(cur_time);
+	const cur_seconds = get_seconds(cur_time);
 	const formatted_time = format_date(cur_time);
 
 	if (status)
@@ -318,7 +343,7 @@ async function check() {
 	if (players_left.length != 0) {
 		msg += `**Player(s) left** (${formatted_time}):\n`;
 		for (const [k, v] of zip(players_left, player_time_diff_s).toSorted((a, b) => b[1] - a[1])) {
-			// INFO: human_readable_time_diff can return empty string if player joined and left under a second
+			// INFO: human_readable_time can return empty string if player joined and left under a second
 			msg += `- ${k} (after ${human_readable_time(v)} of gaming)\n`;
 		}
 	}
@@ -369,7 +394,7 @@ commands.set("players", {
 			return;
 		}
 
-		const cur_seconds = get_current_seconds();
+		const cur_seconds = get_seconds();
 
 		const server_name = clear_color_tags(status.hostname);
 
@@ -452,7 +477,7 @@ commands.set("server", {
 			return;
 		}
 
-		const cur_seconds = get_current_seconds();
+		const cur_seconds = get_seconds();
 		const server_name = clear_color_tags(status.hostname);
 		const show_counts = interaction.options.getBoolean("session_count", false) ?? false;
 

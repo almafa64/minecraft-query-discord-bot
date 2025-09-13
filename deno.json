@@ -7,7 +7,8 @@
 		"@std/fs": "jsr:@std/fs@^1.0.19",
 		"@std/path": "jsr:@std/path@^1.1.2",
 		"binary-parser-encoder": "npm:binary-parser-encoder@^1.5.3",
-		"discord.js": "npm:discord.js@^14.22.1"
+		"discord.js": "npm:discord.js@^14.22.1",
+		"sqlite": "https://deno.land/x/sqlite/mod.ts"
 	},
 	"fmt": {
 		"useTabs": true,
