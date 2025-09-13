@@ -1,7 +1,9 @@
-import { Parser } from "npm:binary-parser-encoder";
+import { Parser } from "binary-parser-encoder";
 import { log, LOG_TAGS } from "./logging.ts";
 
 const MAGIC = 0xFEFD;
+const HOSTNAME = Deno.env.get("HOST") || "127.0.0.1";
+const PORT = parseInt(Deno.env.get("PORT") || "25565");
 
 const HandshakeReq = new Parser()
 	.uint16be("magic", { assert: MAGIC })
@@ -27,25 +29,25 @@ const StatusResp = new Parser()
 	.nest("", {
 		type: new Parser()
 			.skip("hostname".length + 1)
-			.nest("hostname", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("hostname", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("gametype".length + 1)
-			.nest("gametype", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("gametype", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("game_id".length + 1)
-			.nest("game_id", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("game_id", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("version".length + 1)
-			.nest("version", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("version", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("plugins".length + 1)
-			.nest("plugins", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("plugins", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("map".length + 1)
-			.nest("map", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("map", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("numplayers".length + 1)
-			.nest("numplayers", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("numplayers", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("maxplayers".length + 1)
-			.nest("maxplayers", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("maxplayers", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("hostport".length + 1)
-			.nest("hostport", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("hostport", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip("hostip".length + 1)
-			.nest("hostip", { type: new Parser().string("", { encoding: "iso-8859-2", zeroTerminated: true }) })
+			.string("hostip", { encoding: "iso-8859-2", zeroTerminated: true })
 			.skip(1),
 	})
 	.skip(10)
@@ -84,8 +86,8 @@ export async function get_status(id: number) {
 
 	const peerAddress: Deno.NetAddr = {
 		transport: "udp",
-		hostname: Deno.env.get("HOST") || "127.0.0.1",
-		port: parseInt(Deno.env.get("PORT") || "25565"),
+		hostname: HOSTNAME,
+		port: PORT,
 	};
 
 	try {
