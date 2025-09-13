@@ -1,5 +1,6 @@
 import { Parser } from "binary-parser-encoder";
 import { log, LOG_TAGS } from "./logging.ts";
+import "@std/dotenv/load";
 
 const MAGIC = 0xFEFD;
 const HOSTNAME = Deno.env.get("HOST") || "127.0.0.1";
