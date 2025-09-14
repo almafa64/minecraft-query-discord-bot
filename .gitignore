@@ -2,3 +2,4 @@ logs
 .env
 *.sqlite
 *.db
+names_to_ids.json

@@ -17,10 +17,19 @@ import { get_status } from "./api.ts";
 import "@std/dotenv/load";
 import { format_date, log, LOG_TAGS } from "./logging.ts";
 import { DB, QueryParameterSet, Row, RowObject } from "sqlite";
+import * as fs from "@std/fs";
+import * as path from "@std/path";
 
+const DO_CONVERT_NAMES_TO_IDS = false;
+const PLAYER_NAMES_TO_DC_IDS_FILE_NAME = "names_to_ids.json";
 const CHECK_INTERVAL = 5000;
-
 const MC_CHANNEL = Deno.env.get("MC_CHANNEL");
+
+if (!await fs.exists(PLAYER_NAMES_TO_DC_IDS_FILE_NAME, { isFile: true, isReadable: true }))
+	await Deno.writeFile(PLAYER_NAMES_TO_DC_IDS_FILE_NAME, new TextEncoder().encode("{}"));
+
+const _player_names_to_ids = await import(path.resolve(PLAYER_NAMES_TO_DC_IDS_FILE_NAME), { with: { type: "json" } });
+const player_names_to_ids_map = new Map<string, string>(Object.entries(_player_names_to_ids.default));
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 const db = new DB("player_data.sqlite");
@@ -164,7 +173,7 @@ function get_seconds(date?: Date) {
 }
 
 /**
- * Returns seconds in a readable format in format `"xh ym zs"`  
+ * Returns seconds in a readable format in format `"xh ym zs"`
  * if part is 0 (e.g. h == 0) then it's left out
  * @returns string in format `"xh ym zs"` or if seconds is negative `"error: <seconds>"`
  */
@@ -252,6 +261,16 @@ async function get_channel() {
 	return _ch;
 }
 
+/**
+ * Gets player discord id from minecraft name with help of `names_to_ids.json` file
+ * If `do_convert == false` this returns name
+ * @param do_convert default value is `DO_CONVERT_NAMES_TO_IDS`
+ */
+function get_user_id(name: string, do_convert: boolean = DO_CONVERT_NAMES_TO_IDS) {
+	if (!do_convert || !player_names_to_ids_map.has(name)) return name;
+	return `<@${player_names_to_ids_map.get(name)}>`;
+}
+
 async function check() {
 	const send_ch = await get_channel();
 	if (!send_ch) return;
@@ -337,23 +356,26 @@ async function check() {
 
 	let msg = "";
 
-	if (players_joined.length != 0)
-		msg += `**Player(s) joined** (${formatted_time}):\n- ${players_joined.toSorted().join("\n- ")}\n`;
+	if (players_joined.length != 0) {
+		msg += `**Player(s) joined** (${formatted_time}):\n- ${
+			players_joined.toSorted().map((v) => get_user_id(v)).join("\n- ")
+		}\n`;
+	}
 
 	if (players_left.length != 0) {
 		msg += `**Player(s) left** (${formatted_time}):\n`;
 		for (const [k, v] of zip(players_left, player_time_diff_s).toSorted((a, b) => b[1] - a[1])) {
 			// INFO: human_readable_time can return empty string if player joined and left under a second
-			msg += `- ${k} (after ${human_readable_time(v)} of gaming)\n`;
+			msg += `- ${get_user_id(k)} (after ${human_readable_time(v)} of gaming)\n`;
 		}
 	}
 
 	if (parseInt(status.numplayers) > 0)
-		msg += `**Current players**: ${status.players.toSorted().join(", ")}`;
+		msg += `**Current players**: ${status.players.toSorted().map((v) => get_user_id(v)).join(", ")}`;
 	else
 		msg += `Server is empty`;
 
-	await send_ch.send(msg);
+	await send_ch.send({ flags: MessageFlags.SuppressNotifications, content: msg });
 }
 
 client.once(Events.ClientReady, async (client) => {
@@ -382,6 +404,11 @@ commands.set("players", {
 		.addBooleanOption(
 			new SlashCommandBooleanOption().setName("session_count").setDescription("show session counts for players?"),
 		)
+		.addBooleanOption(
+			new SlashCommandBooleanOption().setName("use_dc_names").setDescription(
+				"should convert minecraft names to discord names?",
+			),
+		)
 		.setName("players")
 		.setDescription(
 			"Gets players from appleMC server (current time, total time, session counts, avarage hour/session).",
@@ -400,6 +427,7 @@ commands.set("players", {
 
 		const show_all = interaction.options.getBoolean("all_players", false) ?? false;
 		const show_counts = interaction.options.getBoolean("session_count", false) ?? false;
+		const use_dc_names = interaction.options.getBoolean("use_dc_names", false) ?? DO_CONVERT_NAMES_TO_IDS;
 
 		let out: string;
 
@@ -424,9 +452,9 @@ commands.set("players", {
 					count = player.count;
 				}
 
-				out += `\n1. **${player.name}** (current online time: ${human_readable_time(diff_in_s)}, total: ${
-					human_readable_time(total_s)
-				}`;
+				out += `\n1. **${get_user_id(player.name, use_dc_names)}** (current online time: ${
+					human_readable_time(diff_in_s)
+				}, total: ${human_readable_time(total_s)}`;
 				out += show_counts ? `, joined ${count} times, ${readable_time(total_s / count)}h/session` : "";
 				out += ")";
 			}
@@ -443,20 +471,20 @@ commands.set("players", {
 					count = player.count;
 				}
 
-				out += `\n1. **${player.name}** (total: ${human_readable_time(total_s)}`;
+				out += `\n1. **${get_user_id(player.name, use_dc_names)}** (total: ${human_readable_time(total_s)}`;
 				out += show_counts ? `, joined ${count} times, ${readable_time(total_s / count)}h/session` : "";
 				out += ")";
 			}
 
 			const db_not_yet_players = get_all_not_yet_players.all().map((v) => v[0]);
 			for (const player of db_not_yet_players) {
-				out += `\n1. **${player}** (total: never played`;
+				out += `\n1. **${get_user_id(player)}** (total: never played`;
 				out += show_counts ? `, joined 0 times, 0h/session` : "";
 				out += ")";
 			}
 		}
 
-		await interaction.reply(out);
+		await interaction.reply({ flags: MessageFlags.SuppressNotifications, content: out });
 	},
 });
 
