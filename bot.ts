@@ -398,16 +398,17 @@ const commands = new Collection<string, Command>();
 
 commands.set("players", {
 	data: new SlashCommandBuilder()
-		.addBooleanOption(
-			new SlashCommandBooleanOption().setName("all_players").setDescription("show all players (even offline ones)?"),
+		.addBooleanOption((o) => o.setName("all_players").setDescription("Do show all players? (Default: true)"))
+		.addBooleanOption((o) => o.setName("session_count").setDescription("Do show session counts for players? (Default: true)"))
+		.addBooleanOption((o) =>
+			o.setName("use_dc_names").setDescription(`Should convert minecraft names to discord names? (Default: ${DO_CONVERT_NAMES_TO_IDS})`)
 		)
-		.addBooleanOption(
-			new SlashCommandBooleanOption().setName("session_count").setDescription("show session counts for players?"),
-		)
-		.addBooleanOption(
-			new SlashCommandBooleanOption().setName("use_dc_names").setDescription(
-				"should convert minecraft names to discord names?",
-			),
+		.addStringOption((o) =>
+			o.setName("sort_by").setDescription("Sort list by this. (Default: time)").addChoices(
+				{ name: "average", value: "avg" },
+				{ name: "time", value: "time" },
+				{ name: "sessions", value: "sessions" },
+			)
 		)
 		.setName("players")
 		.setDescription(
@@ -425,9 +426,10 @@ commands.set("players", {
 
 		const server_name = clear_color_tags(status.hostname);
 
-		const show_all = interaction.options.getBoolean("all_players", false) ?? false;
-		const show_counts = interaction.options.getBoolean("session_count", false) ?? false;
+		const show_all = interaction.options.getBoolean("all_players", false) ?? true;
+		const show_counts = interaction.options.getBoolean("session_count", false) ?? true;
 		const use_dc_names = interaction.options.getBoolean("use_dc_names", false) ?? DO_CONVERT_NAMES_TO_IDS;
+		const sort_by = interaction.options.getString("sort_by", false) ?? "time";
 
 		let out: string;
 
@@ -490,9 +492,7 @@ commands.set("players", {
 
 commands.set("server", {
 	data: new SlashCommandBuilder()
-		.addBooleanOption(
-			new SlashCommandBooleanOption().setName("session_count").setDescription("show session count?"),
-		)
+		.addBooleanOption((o) => o.setName("session_count").setDescription("show session count?"))
 		.setName("server")
 		.setDescription(
 			"Gets appleMC server data (current uptime, total uptime, session counts, avarage hour/session).",
@@ -507,7 +507,7 @@ commands.set("server", {
 
 		const cur_seconds = get_seconds();
 		const server_name = clear_color_tags(status.hostname);
-		const show_counts = interaction.options.getBoolean("session_count", false) ?? false;
+		const show_counts = interaction.options.getBoolean("session_count", false) ?? true;
 
 		let diff_in_s = -1;
 		let total_s = -1;
