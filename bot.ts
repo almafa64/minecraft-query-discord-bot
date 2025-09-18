@@ -68,9 +68,11 @@ const close_session = db.prepareQuery<Row, RowObject, { player_name: string; dis
 	"update sessions set disconnect_time = :disconnect_time where player_id = (select id from players where name = :player_name) and disconnect_time is null",
 );
 
+type PlayerData = { name: string; time: number; count: number };
+
 const get_player = db.prepareQuery<
 	[string, number, number],
-	{ name: string; time: number; count: number },
+	PlayerData,
 	{ time: number; name: string }
 >(
 	`SELECT players.name as name,
@@ -82,7 +84,7 @@ const get_player = db.prepareQuery<
 
 const get_all_players = db.prepareQuery<
 	[string, number, number],
-	{ name: string; time: number; count: number },
+	PlayerData,
 	{ time: number }
 >(
 	`SELECT players.name as name,
@@ -399,15 +401,20 @@ const commands = new Collection<string, Command>();
 commands.set("players", {
 	data: new SlashCommandBuilder()
 		.addBooleanOption((o) => o.setName("all_players").setDescription("Do show all players? (Default: true)"))
-		.addBooleanOption((o) => o.setName("session_count").setDescription("Do show session counts for players? (Default: true)"))
 		.addBooleanOption((o) =>
-			o.setName("use_dc_names").setDescription(`Should convert minecraft names to discord names? (Default: ${DO_CONVERT_NAMES_TO_IDS})`)
+			o.setName("session_count").setDescription("Do show session counts for players? (Default: true)")
+		)
+		.addBooleanOption((o) =>
+			o.setName("use_dc_names").setDescription(
+				`Should convert minecraft names to discord names? (Default: ${DO_CONVERT_NAMES_TO_IDS})`,
+			)
 		)
 		.addStringOption((o) =>
 			o.setName("sort_by").setDescription("Sort list by this. (Default: time)").addChoices(
 				{ name: "average", value: "avg" },
 				{ name: "time", value: "time" },
 				{ name: "sessions", value: "sessions" },
+				{ name: "name", value: "name" },
 			)
 		)
 		.setName("players")
@@ -429,7 +436,28 @@ commands.set("players", {
 		const show_all = interaction.options.getBoolean("all_players", false) ?? true;
 		const show_counts = interaction.options.getBoolean("session_count", false) ?? true;
 		const use_dc_names = interaction.options.getBoolean("use_dc_names", false) ?? DO_CONVERT_NAMES_TO_IDS;
-		const sort_by = interaction.options.getString("sort_by", false) ?? "time";
+		const sort_by_chooser = interaction.options.getString("sort_by", false);
+
+		const sort_by_name = (a: PlayerData, b: PlayerData) => a.name.localeCompare(b.name);
+		const sort_by_avg = (a: PlayerData, b: PlayerData) => (b.time / b.count) - (a.time / a.count);
+		const sort_by_time = (a: PlayerData, b: PlayerData) => b.time - a.time;
+		const sort_by_sessions = (a: PlayerData, b: PlayerData) => b.count - a.count;
+		let sort_by: (a: PlayerData, b: PlayerData) => number;
+		switch (sort_by_chooser) {
+			case "avg":
+				sort_by = sort_by_avg;
+				break;
+			case "name":
+				sort_by = sort_by_name;
+				break;
+			case "sessions":
+				sort_by = sort_by_sessions;
+				break;
+			case "time":
+			default:
+				sort_by = sort_by_time;
+				break;
+		}
 
 		let out: string;
 
@@ -440,7 +468,7 @@ commands.set("players", {
 				return get_player.firstEntry({ name: v, time: cur_seconds });
 			}).filter((v) => v !== undefined);
 
-			for (const player of db_players.toSorted((a, b) => b.time - a.time)) {
+			for (const player of db_players.toSorted(sort_by)) {
 				let diff_in_s = -1;
 				let total_s = -1;
 				let count = -1;
@@ -464,7 +492,7 @@ commands.set("players", {
 			out = `**All players on '${server_name}'**:`;
 			const db_players = get_all_players.allEntries({ time: cur_seconds });
 
-			for (const player of db_players.toSorted((a, b) => b.time - a.time)) {
+			for (const player of db_players.toSorted(sort_by)) {
 				let total_s = -1;
 				let count = -1;
 
