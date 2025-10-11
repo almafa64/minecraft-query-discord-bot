@@ -305,6 +305,8 @@ async function check() {
 }
 
 export function init(dc_client: Client) {
+	if(client) return;
+	
 	client = dc_client;
 
 	setTimeout(async function run() {
