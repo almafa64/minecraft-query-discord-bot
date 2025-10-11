@@ -8,22 +8,21 @@ import {
 	REST,
 	RESTPostAPIChatInputApplicationCommandsJSONBody,
 	Routes,
-	SendableChannels,
-	SlashCommandBooleanOption,
 	SlashCommandBuilder,
 	SlashCommandOptionsOnlyBuilder,
 } from "discord.js";
 import { get_status } from "./api.ts";
-import "@std/dotenv/load";
 import { format_date, log, LOG_TAGS } from "./logging.ts";
 import { DB, QueryParameterSet, Row, RowObject } from "sqlite";
 import * as fs from "@std/fs";
 import * as path from "@std/path";
+import * as mod_watcher from "./mod_watcher.ts";
+import { clear_color_tags, get_channel, get_seconds, human_readable_time, readable_time, zip } from "./utils.ts";
 
 const DO_CONVERT_NAMES_TO_IDS = false;
 const PLAYER_NAMES_TO_DC_IDS_FILE_NAME = "names_to_ids.json";
+
 const CHECK_INTERVAL = 5000;
-const MC_CHANNEL = Deno.env.get("MC_CHANNEL");
 
 if (!await fs.exists(PLAYER_NAMES_TO_DC_IDS_FILE_NAME, { isFile: true, isReadable: true }))
 	await Deno.writeFile(PLAYER_NAMES_TO_DC_IDS_FILE_NAME, new TextEncoder().encode("{}"));
@@ -31,7 +30,9 @@ if (!await fs.exists(PLAYER_NAMES_TO_DC_IDS_FILE_NAME, { isFile: true, isReadabl
 const _player_names_to_ids = await import(path.resolve(PLAYER_NAMES_TO_DC_IDS_FILE_NAME), { with: { type: "json" } });
 const player_names_to_ids_map = new Map<string, string>(Object.entries(_player_names_to_ids.default));
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const client = new Client({
+	intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.DirectMessages],
+});
 const db = new DB("player_data.sqlite");
 
 db.execute(`
@@ -160,110 +161,6 @@ if (tmp_status) {
 }
 
 /**
- * Zips 2 array into 1, b is trimmed to a.length
- */
-function zip<A, B>(a: A[], b: B[]) {
-	return a.map((v, i) => [v, b[i]] as [A, B]);
-}
-
-/**
- * Returns seconds since UNIX epoch
- * @param date date to use, default is current time
- */
-function get_seconds(date?: Date) {
-	return Math.floor((date ?? new Date()).getTime() / 1000);
-}
-
-/**
- * Returns seconds in a readable format in format `"xh ym zs"`
- * if part is 0 (e.g. h == 0) then it's left out
- * @returns string in format `"xh ym zs"` or if seconds is negative `"error: <seconds>"`
- */
-function human_readable_time(seconds: number) {
-	if (seconds < 0) return `error: ${seconds}`;
-
-	const h = Math.floor(seconds / 3600);
-	seconds -= 3600 * h;
-
-	const m = Math.floor(seconds / 60);
-	seconds -= 60 * m;
-
-	const s = Math.floor(seconds);
-
-	const out: string[] = [];
-	if (h > 0) out.push(`${h}h`);
-	if (m > 0) out.push(`${m}m`);
-	if (s > 0) out.push(`${s}s`);
-
-	return out.join(" ");
-}
-
-/**
- * Returns seconds converted to another unit rounded to digits as a string
- * @param format time unit (default = "h")
- * @param digits how many decimal digits should there be (default = 2)
- */
-function readable_time(seconds: number, format: "h" | "m" | "s" = "h", digits = 2) {
-	switch (format) {
-		case "h":
-			return (seconds / 3600).toFixed(digits);
-		case "m":
-			return (seconds / 60).toFixed(digits);
-		case "s":
-			return seconds.toFixed(digits);
-	}
-}
-
-/**
- * Returns new string without minecraft color tags (§x)
- */
-function clear_color_tags(tagged_string: string) {
-	let name = "";
-	let i = 0;
-
-	while (i < tagged_string.length) {
-		const chr = tagged_string[i];
-		if (chr === "§") {
-			i += 2;
-			continue;
-		}
-
-		name += chr;
-		i++;
-	}
-
-	return name;
-}
-
-let _ch: SendableChannels | undefined;
-/**
- * Gets discord channel to send notifications to
- */
-async function get_channel() {
-	if (_ch) return _ch;
-
-	const send_ch = client.channels.cache.get(MC_CHANNEL ?? "");
-	if (send_ch === undefined) {
-		await log(LOG_TAGS.WARNING, `Cant find '${MC_CHANNEL}' channel. Turning off notification system.`);
-		return undefined;
-	}
-
-	if (!send_ch.isSendable) {
-		await log(
-			LOG_TAGS.WARNING,
-			`Channel '${MC_CHANNEL}' isnt sendable. Turning off notification system.`,
-		);
-		return undefined;
-	}
-
-	_ch = send_ch as SendableChannels;
-	// TODO: get name
-	await log(LOG_TAGS.INFO, `Using channel '${_ch.id}' for notifications.`);
-
-	return _ch;
-}
-
-/**
  * Gets player discord id from minecraft name with help of `names_to_ids.json` file
  * If `do_convert == false` this returns name
  * @param do_convert default value is `DO_CONVERT_NAMES_TO_IDS`
@@ -274,7 +171,7 @@ function get_user_id(name: string, do_convert: boolean = DO_CONVERT_NAMES_TO_IDS
 }
 
 async function check() {
-	const send_ch = await get_channel();
+	const send_ch = await get_channel(client);
 	if (!send_ch) return;
 
 	let status = await get_status(1);
@@ -290,7 +187,10 @@ async function check() {
 		states.is_server_up = true;
 		server_open_session.execute({ conn_time: cur_seconds });
 
-		await send_ch.send(`server **${states.name}** is **up** (${formatted_time})!`);
+		const msg = `server **${states.name}** is **up** (${formatted_time})!`;
+
+		await send_ch.send(msg);
+		await log(LOG_TAGS.INFO, msg.replaceAll("*", ""));
 	} else if (states.is_server_up && !status) {
 		states.is_server_up = false;
 		server_close_session.execute({ disconnect_time: cur_seconds });
@@ -300,7 +200,9 @@ async function check() {
 		let msg = `server **${states.name}** is **down** (${formatted_time})`;
 		if (server_last_up) msg += ` after ${human_readable_time(cur_seconds - server_last_up.time)}`;
 		msg += "!";
+
 		await send_ch.send(msg);
+		await log(LOG_TAGS.INFO, msg.replaceAll("*", ""));
 
 		// INFO: fabricate own status so player left code can be reused
 		status = {
@@ -383,11 +285,13 @@ async function check() {
 client.once(Events.ClientReady, async (client) => {
 	await log(LOG_TAGS.INFO, `logged in as ${client.user.tag}`);
 
-	if (await get_channel()) {
+	if (await get_channel(client)) {
 		setTimeout(async function test() {
 			await check();
 			setTimeout(test, CHECK_INTERVAL);
 		}, CHECK_INTERVAL);
+
+		mod_watcher.init(client);
 	}
 });
 
@@ -572,7 +476,7 @@ const rest = new REST().setToken(Deno.env.get("TOKEN") ?? "");
 
 (async () => {
 	try {
-		await log(LOG_TAGS.INFO, `Started refreshing ${commands_json.length} application (/) commands.`);
+		await log(LOG_TAGS.INFO, `Started refreshing ${commands_json.length} commands`);
 
 		const data = await rest.put(
 			Deno.env.has("GUILD_ID")
@@ -581,7 +485,7 @@ const rest = new REST().setToken(Deno.env.get("TOKEN") ?? "");
 			{ body: commands_json },
 		) as unknown[];
 
-		await log(LOG_TAGS.INFO, `Successfully reloaded ${data.length} application (/) commands.`);
+		await log(LOG_TAGS.INFO, `Successfully reloaded ${data.length} commands`);
 	} catch (error) {
 		if (error instanceof Error)
 			await log(LOG_TAGS.ERROR, error.message);

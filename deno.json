@@ -1,13 +1,51 @@
 {
+	"permissions": {
+		"default": {
+			"env": [
+				"WS_NO_BUFFER_UTIL",
+				"NODE_V8_COVERAGE",
+				"UNDICI_NO_FG",
+				"JEST_WORKER_ID",
+				"SHARDS",
+				"SHARD_COUNT",
+				"SHARDING_MANAGER",
+				"DISCORD_TOKEN",
+				"TOKEN",
+				"MC_CHANNEL",
+				"HOST",
+				"PORT",
+				"GUILD_ID",
+				"APP_ID",
+				"HOSTER_BRANCH_PATH",
+				"SERVER_MODS_PATH"
+			],
+			"read": true,
+			"write": [
+				"logs",
+				"player_data.sqlite",
+				"player_data.sqlite-journal",
+				"names_to_ids.json",
+				"mod_names.json"
+			],
+			"net": true,
+			"sys": [
+				"uid",
+				"gid"
+			]
+		}
+	},
+	"unstable": [
+		"net"
+	],
 	"tasks": {
-		"main": "deno run -R='.env,logs,player_data.sqlite,player_data.sqlite-journal,names_to_ids.json' -W='logs,player_data.sqlite,player_data.sqlite-journal,names_to_ids.json' -E='WS_NO_BUFFER_UTIL,NODE_V8_COVERAGE,UNDICI_NO_FG,JEST_WORKER_ID,SHARDS,SHARD_COUNT,SHARDING_MANAGER,DISCORD_TOKEN,TOKEN,MC_CHANNEL,HOST,PORT,GUILD_ID,APP_ID' -N --allow-sys='uid,gid' --unstable-net bot.ts"
+		"main": "deno run --env-file -P bot.ts"
 	},
 	"imports": {
 		"@std/dotenv": "jsr:@std/dotenv@^0.225.5",
 		"@std/fs": "jsr:@std/fs@^1.0.19",
 		"@std/path": "jsr:@std/path@^1.1.2",
 		"binary-parser-encoder": "npm:binary-parser-encoder@^1.5.3",
-		"discord.js": "npm:discord.js@^14.22.1",
+		"discord.js": "npm:discord.js@^14.23.2",
 		"sqlite": "https://deno.land/x/sqlite/mod.ts"
 	},
 	"fmt": {
