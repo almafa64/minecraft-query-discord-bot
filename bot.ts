@@ -291,7 +291,7 @@ client.once(Events.ClientReady, async (client) => {
 			setTimeout(test, CHECK_INTERVAL);
 		}, CHECK_INTERVAL);
 
-		mod_watcher.init(client);
+		await mod_watcher.init(client);
 	}
 });
 

@@ -4,7 +4,7 @@ import { format_date, log, LOG_TAGS } from "./logging.ts";
 import { Client, SendableChannels } from "discord.js";
 import { get_channel } from "./utils.ts";
 
-const CHECK_INTERVAL = 10000;
+const CHECK_INTERVAL = 20 * 1000;
 const MOD_NAMES_FILE_NAME = "mod_names.json";
 
 if (!await fs.exists(MOD_NAMES_FILE_NAME, { isFile: true, isReadable: true }))
@@ -71,7 +71,7 @@ await (async () => {
 			last_mods_data.hoster = new HosterData();
 
 		await mod_log(LOG_TAGS.INFO, `Found mod hoster's branch folder (${hoster_branch_path})`);
-	} else if(last_mods_data.hoster) {
+	} else if (last_mods_data.hoster) {
 		last_mods_data.hoster = undefined;
 		last_mods_data.dirty = true;
 
@@ -86,7 +86,7 @@ await (async () => {
 			last_mods_data.server = new Set();
 
 		await mod_log(LOG_TAGS.INFO, `Found server's mods folder (${server_mods_path})`);
-	} else if(last_mods_data.server) {
+	} else if (last_mods_data.server) {
 		last_mods_data.server = undefined;
 		last_mods_data.dirty = true;
 
@@ -304,9 +304,14 @@ async function check() {
 	}
 }
 
-export function init(dc_client: Client) {
-	if(client) return;
-	
+export async function init(dc_client: Client) {
+	if (client) return;
+
+	if (mods_path_data.to_check == ModPathsToCheck.None) {
+		await mod_log(LOG_TAGS.WARNING, "No path to check was set, disabling mod checking");
+		return;
+	}
+
 	client = dc_client;
 
 	setTimeout(async function run() {
