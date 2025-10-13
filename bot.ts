@@ -425,6 +425,7 @@ commands.set("players", {
 commands.set("server", {
 	data: new SlashCommandBuilder()
 		.addBooleanOption((o) => o.setName("session_count").setDescription("show session count?"))
+		.addBooleanOption((o) => o.setName("server_info").setDescription("show all server info?"))
 		.setName("server")
 		.setDescription(
 			"Gets appleMC server data (current uptime, total uptime, session counts, avarage hour/session).",
@@ -440,6 +441,7 @@ commands.set("server", {
 		const cur_seconds = get_seconds();
 		const server_name = clear_color_tags(status.hostname);
 		const show_counts = interaction.options.getBoolean("session_count", false) ?? true;
+		const show_info = interaction.options.getBoolean("server_info", false) ?? true;
 
 		let diff_in_s = -1;
 		let total_s = -1;
@@ -457,6 +459,14 @@ commands.set("server", {
 		}
 
 		let out = `**Current status of '${server_name}'**:\n`;
+
+		if(show_info) {
+			out += `- **Version**: ${status.version}\n`;
+			out += `- **Map**: ${status.map}\n`;
+			out += `- **Player count/limit**: ${status.numplayers}/${status.maxplayers}\n`;
+			out += `- **Current players**: *${status.players.toSorted().map((v) => get_user_id(v)).join("*, *")}*\n`;
+		}
+
 		out += `- **Current uptime**: ${human_readable_time(diff_in_s)}\n`;
 		out += `- **Total uptime**: ${human_readable_time(total_s)}`;
 

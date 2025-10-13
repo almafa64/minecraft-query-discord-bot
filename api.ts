@@ -60,16 +60,27 @@ const StatusResp = new Parser()
 export interface Status {
 	type: number;
 	id: number;
+	/** Server name */
 	hostname: string;
+	/** Always will be "MINECRAFT" */
 	gametype: string;
+	/** Always will be "SMP"*/
 	game_id: string;
+	/** Server version */
 	version: string;
+	/** List of plugins (will be empty if server isn't bukkit based) */
 	plugins: string;
+	/** Name of current map */
 	map: string;
+	/** Online players count */
 	numplayers: string;
+	/** Player limit */
 	maxplayers: string;
+	/** Server port */
 	hostport: string;
+	/** Server IP */
 	hostip: string;
+	/** List of player names */
 	players: string[];
 }
 
