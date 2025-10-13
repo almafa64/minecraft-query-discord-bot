@@ -142,7 +142,7 @@ async function get_mod_names(path: string) {
 /**
  * Splits msg into chunks that fit into discord's message limit. It only splits on new lines
  */
-async function* split_for_discord(msg: string) {
+function* split_for_discord(msg: string) {
 	let start = 0;
 	while (true) {
 		const end = start + 2000;
@@ -254,7 +254,7 @@ async function check_hoster(cur_date: Date, send_ch: SendableChannels) {
 		let msg = `**Hoster's ${name} mods changed** (${format_date(cur_date)}):\n`;
 		msg += diff_to_msg(added_mod_names, removed_mod_names);
 
-		for await (const slice of split_for_discord(msg))
+		for (const slice of split_for_discord(msg))
 			await send_ch.send(slice);
 
 		last_mods_data.dirty = true;
@@ -283,7 +283,7 @@ async function check_server(cur_date: Date, send_ch: SendableChannels) {
 	let msg = `**Server's mods changed** (${format_date(cur_date)}):\n`;
 	msg += diff_to_msg(added_mod_names, removed_mod_names);
 
-	for await (const slice of split_for_discord(msg))
+	for (const slice of split_for_discord(msg))
 		await send_ch.send(slice);
 
 	last_mods_data.dirty = true;
