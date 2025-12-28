@@ -121,6 +121,7 @@ export async function get_status(id: number) {
 		const status_resp: Status = StatusResp.parse(status_resp_buffer.slice(0, status_resp_buffer.length - 1));
 
 		clearTimeout(timout);
+		listener.close();
 		return status_resp;
 	} catch {
 		return undefined;

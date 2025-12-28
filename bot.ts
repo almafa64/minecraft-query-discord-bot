@@ -460,11 +460,14 @@ commands.set("server", {
 
 		let out = `**Current status of '${server_name}'**:\n`;
 
-		if(show_info) {
+		if (show_info) {
 			out += `- **Version**: ${status.version}\n`;
 			out += `- **Map**: ${status.map}\n`;
 			out += `- **Player count/limit**: ${status.numplayers}/${status.maxplayers}\n`;
-			out += `- **Current players**: *${status.players.toSorted().map((v) => get_user_id(v)).join("*, *")}*\n`;
+			if(status.players.length == 0)
+				out += `- **Current players**:\n`;
+			else
+				out += `- **Current players**: *${status.players.toSorted().map((v) => get_user_id(v)).join("*, *")}*\n`;
 		}
 
 		out += `- **Current uptime**: ${human_readable_time(diff_in_s)}\n`;
