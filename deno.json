@@ -38,14 +38,15 @@
 		"net"
 	],
 	"tasks": {
-		"main": "deno run --env-file -P bot.ts"
+		"main": "deno run --env-file -P bot.ts",
+		"main_unsecure": "deno run --env-file -A bot.ts"
 	},
 	"imports": {
-		"@std/dotenv": "jsr:@std/dotenv@^0.225.5",
-		"@std/fs": "jsr:@std/fs@^1.0.19",
-		"@std/path": "jsr:@std/path@^1.1.2",
+		"@std/dotenv": "jsr:@std/dotenv@^0.225.6",
+		"@std/fs": "jsr:@std/fs@^1.0.21",
+		"@std/path": "jsr:@std/path@^1.1.4",
 		"binary-parser-encoder": "npm:binary-parser-encoder@^1.5.3",
-		"discord.js": "npm:discord.js@^14.23.2",
+		"discord.js": "npm:discord.js@^14.25.1",
 		"sqlite": "https://deno.land/x/sqlite/mod.ts"
 	},
 	"fmt": {

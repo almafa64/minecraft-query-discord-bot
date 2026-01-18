@@ -1,7 +1,4 @@
-import {
-	Client,
-	SendableChannels,
-} from "discord.js";
+import { Client, SendableChannels } from "discord.js";
 import { log, LOG_TAGS } from "./logging.ts";
 
 const MC_CHANNEL = Deno.env.get("MC_CHANNEL");
@@ -89,10 +86,13 @@ let _ch: SendableChannels | undefined;
 export async function get_channel(client: Client) {
 	if (_ch) return _ch;
 
-	const send_ch = client.channels.cache.get(MC_CHANNEL ?? "");
+	let send_ch = client.channels.cache.get(MC_CHANNEL ?? "");
 	if (send_ch === undefined) {
-		await log(LOG_TAGS.WARNING, `Cant find '${MC_CHANNEL}' channel. Turning off notification system.`);
-		return undefined;
+		send_ch = await client.channels.fetch(MC_CHANNEL ?? "") || undefined;
+		if (send_ch === undefined) {
+			await log(LOG_TAGS.WARNING, `Cant find '${MC_CHANNEL}' channel. Turning off notification system.`);
+			return undefined;
+		}
 	}
 
 	if (!send_ch.isSendable) {

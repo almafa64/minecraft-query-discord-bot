@@ -154,6 +154,11 @@ const states = {
 const tmp_status = await get_status(3);
 if (tmp_status) {
 	states.is_server_up = true;
+
+	// open a session if server is already up and there is no opened session
+	if (get_server_last_conn.first() === undefined)
+		server_open_session.execute({ conn_time: get_seconds() });
+
 	states.name = clear_color_tags(tmp_status.hostname);
 	get_not_disconnected_players.allEntries().forEach((v) => {
 		states.last_players.set(v.name, v.connect_time);
@@ -284,6 +289,10 @@ async function check() {
 
 client.once(Events.ClientReady, async (client) => {
 	await log(LOG_TAGS.INFO, `logged in as ${client.user.tag}`);
+
+	const ch = await get_channel(client);
+	if (ch)
+		await ch.send("bot is **up**!");
 
 	if (await get_channel(client)) {
 		setTimeout(async function test() {
@@ -464,7 +473,7 @@ commands.set("server", {
 			out += `- **Version**: ${status.version}\n`;
 			out += `- **Map**: ${status.map}\n`;
 			out += `- **Player count/limit**: ${status.numplayers}/${status.maxplayers}\n`;
-			if(status.players.length == 0)
+			if (status.players.length == 0)
 				out += `- **Current players**:\n`;
 			else
 				out += `- **Current players**: *${status.players.toSorted().map((v) => get_user_id(v)).join("*, *")}*\n`;
