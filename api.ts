@@ -93,6 +93,7 @@ export async function get_status(id: number) {
 	const listener = Deno.listenDatagram({
 		port: 0,
 		transport: "udp",
+		hostname: "0.0.0.0"
 	});
 
 	// 2s of timout
@@ -124,6 +125,7 @@ export async function get_status(id: number) {
 		listener.close();
 		return status_resp;
 	} catch {
+		clearTimeout(timout);
 		return undefined;
 	}
 }
