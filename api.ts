@@ -123,13 +123,16 @@ export async function get_status(id: number) {
 
 		clearTimeout(timout);
 		listener.close();
+		
 		return status_resp;
 	} catch (e) {
 		if (!(e instanceof Deno.errors.Interrupted)) {
 			clearTimeout(timout);
+
 			const msg = (e instanceof Error ? e.stack : undefined) || e;
 			await log(LOG_TAGS.ERROR, `error while trying to query server: ${msg}`);
 		}
+
 		return undefined;
 	}
 }

@@ -291,10 +291,9 @@ client.once(Events.ClientReady, async (client) => {
 	await log(LOG_TAGS.INFO, `logged in as ${client.user.tag}`);
 
 	const ch = await get_channel(client);
-	if (ch)
+	if (ch) {
 		await ch.send("bot is **up**!");
 
-	if (await get_channel(client)) {
 		setTimeout(async function test() {
 			await check();
 			setTimeout(test, CHECK_INTERVAL);
@@ -473,10 +472,10 @@ commands.set("server", {
 			out += `- **Version**: ${status.version}\n`;
 			out += `- **Map**: ${status.map}\n`;
 			out += `- **Player count/limit**: ${status.numplayers}/${status.maxplayers}\n`;
-			if (status.players.length == 0)
-				out += `- **Current players**:\n`;
-			else
-				out += `- **Current players**: *${status.players.toSorted().map((v) => get_user_id(v)).join("*, *")}*\n`;
+			out += `- **Current players**: `;
+			if (status.players.length != 0)
+				out += `*${status.players.toSorted().map((v) => get_user_id(v)).join("*, *")}*`;
+			out += "\n";
 		}
 
 		out += `- **Current uptime**: ${human_readable_time(diff_in_s)}\n`;
