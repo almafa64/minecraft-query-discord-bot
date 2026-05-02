@@ -2,7 +2,7 @@ import * as fs from "@std/fs";
 import * as path from "@std/path";
 import { format_date, log, LOG_TAGS } from "./logging.ts";
 import { Client, SendableChannels } from "discord.js";
-import { get_channel } from "./utils.ts";
+import { compare_with_case, get_channel } from "./utils.ts";
 
 const CHECK_INTERVAL = 20 * 1000;
 const MOD_NAMES_FILE_NAME = "mod_names.json";
@@ -166,10 +166,10 @@ function diff_to_msg(added: Set<string>, removed: Set<string>) {
 	let msg = "";
 
 	if (removed.size > 0)
-		msg += `- \\- **${removed.keys().toArray().toSorted().join("**\n- \\- **")}**\n`;
+		msg += `- \\- **${removed.keys().toArray().toSorted(compare_with_case).join("**\n- \\- **")}**\n`;
 
 	if (added.size > 0)
-		msg += `- + **${added.keys().toArray().toSorted().join("**\n- + **")}**\n`;
+		msg += `- + **${added.keys().toArray().toSorted(compare_with_case).join("**\n- + **")}**\n`;
 
 	return msg;
 }

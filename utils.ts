@@ -109,3 +109,7 @@ export async function get_channel(client: Client) {
 
 	return _ch;
 }
+
+export function compare_with_case(a: string, b: string) {
+	return a.localeCompare(b, undefined, { sensitivity: "case" });
+}

@@ -17,7 +17,7 @@ import { DB, QueryParameterSet, Row, RowObject } from "sqlite";
 import * as fs from "@std/fs";
 import * as path from "@std/path";
 import * as mod_watcher from "./mod_watcher.ts";
-import { clear_color_tags, get_channel, get_seconds, human_readable_time, readable_time, zip } from "./utils.ts";
+import { clear_color_tags, compare_with_case, get_channel, get_seconds, human_readable_time, readable_time, zip } from "./utils.ts";
 
 const DO_CONVERT_NAMES_TO_IDS = false;
 const PLAYER_NAMES_TO_DC_IDS_FILE_NAME = "names_to_ids.json";
@@ -267,7 +267,7 @@ async function check() {
 
 	if (players_joined.length != 0) {
 		msg += `**Player(s) joined** (${formatted_time}):\n- ${
-			players_joined.toSorted().map((v) => get_user_id(v)).join("\n- ")
+			players_joined.toSorted(compare_with_case).map((v) => get_user_id(v)).join("\n- ")
 		}\n`;
 	}
 
@@ -280,7 +280,7 @@ async function check() {
 	}
 
 	if (parseInt(status.numplayers) > 0)
-		msg += `**Current players**: ${status.players.toSorted().map((v) => get_user_id(v)).join(", ")}`;
+		msg += `**Current players**: ${status.players.toSorted(compare_with_case).map((v) => get_user_id(v)).join(", ")}`;
 	else
 		msg += `Server is empty`;
 
@@ -350,7 +350,7 @@ commands.set("players", {
 		const use_dc_names = interaction.options.getBoolean("use_dc_names", false) ?? DO_CONVERT_NAMES_TO_IDS;
 		const sort_by_chooser = interaction.options.getString("sort_by", false);
 
-		const sort_by_name = (a: PlayerData, b: PlayerData) => a.name.localeCompare(b.name);
+		const sort_by_name = (a: PlayerData, b: PlayerData) => compare_with_case(a.name, b.name);
 		const sort_by_avg = (a: PlayerData, b: PlayerData) => (b.time / b.count) - (a.time / a.count);
 		const sort_by_time = (a: PlayerData, b: PlayerData) => b.time - a.time;
 		const sort_by_sessions = (a: PlayerData, b: PlayerData) => b.count - a.count;
