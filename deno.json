@@ -38,8 +38,8 @@
 		"net"
 	],
 	"tasks": {
-		"main": "deno run --env-file -P bot.ts",
-		"main_unsecure": "deno run --env-file -A bot.ts"
+		"main": "deno run --env-file -P src/bot.ts",
+		"main_unsecure": "deno run --env-file -A src/bot.ts"
 	},
 	"imports": {
 		"@std/dotenv": "jsr:@std/dotenv@^0.225.6",
