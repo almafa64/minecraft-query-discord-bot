@@ -46,7 +46,7 @@
 		"@std/fs": "jsr:@std/fs@^1.0.23",
 		"@std/path": "jsr:@std/path@^1.1.4",
 		"binary-parser-encoder": "npm:binary-parser-encoder@^1.5.3",
-		"discord.js": "npm:discord.js@^14.25.1",
+		"discord.js": "npm:discord.js@^14.26.4",
 		"sqlite": "https://deno.land/x/sqlite/mod.ts"
 	},
 	"fmt": {
