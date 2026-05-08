@@ -1,5 +1,19 @@
 {
 	"permissions": {
+		"migrate": {
+			"sys": [
+				"uid",
+				"gid"
+			],
+			"read": true,
+			"write": [
+				"data",
+				"config.toml",
+				"player_data.sqlite",
+				"names_to_ids.json",
+				"mod_names.json"
+			]
+		},
 		"default": {
 			"env": [
 				"WS_NO_BUFFER_UTIL",
@@ -37,8 +51,9 @@
 		"net"
 	],
 	"tasks": {
-		"main": "deno run --env-file -P src/bot.ts",
-		"main_unsecure": "deno run --env-file -A src/bot.ts"
+		"main": "deno run migrate && deno run --env-file -P src/bot.ts",
+		"main_unsecure": "deno run migrate && deno run --env-file -A src/bot.ts",
+		"migrate": "deno run -P=migrate src/migrate.ts"
 	},
 	"imports": {
 		"@std/dotenv": "jsr:@std/dotenv@^0.225.6",
