@@ -1,5 +1,5 @@
 import { Parser } from "binary-parser-encoder";
-import { log, LOG_TAGS } from "../src/logging.ts";
+import { log, LOG_TAGS } from "./logging.ts";
 import "@std/dotenv/load";
 
 const MAGIC = 0xFEFD;
