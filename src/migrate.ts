@@ -26,11 +26,11 @@ async function migrate_before_data_folder() {
 		config.query_configs.names_to_ids = { ...player_names_to_ids, ...config.query_configs.names_to_ids };
 
 		Deno.removeSync(names_to_ids_file_path);
-	}
 
-	const tmp = structuredClone(config);
-	delete (tmp as unknown as {constants?: string}).constants;
-	Deno.writeTextFileSync(config.constants.config_path, toml.stringify(tmp));
+		const tmp = structuredClone(config);
+		delete (tmp as unknown as {constants?: string}).constants;
+		Deno.writeTextFileSync(config.constants.config_path, toml.stringify(tmp));
+	}
 }
 
 await migrate_before_data_folder();
