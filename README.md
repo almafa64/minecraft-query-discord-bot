@@ -4,7 +4,8 @@ A random dc bot I wrote for my minecraft server, so my friends can know who is i
 
 ## Running
 1. Install [deno](https://github.com/denoland/deno/)
-2. Run `deno run main` (if it needs permission allow/decline them or run `deno run main_unsecure` instead)
+2. (optional, extra configuration) Copy/rename `config.toml.sample` to `config.toml`
+3. Run `deno run main` (if it needs permission, allow/decline them or run `deno run main_unsecure` instead)
 
 ## Environment settings
 use `.env` file or set them from terminal<br>

@@ -1,0 +1,15 @@
+# these are the default settings
+
+[query_config]
+# if true then all bot messages will have discord names instead of player names (if there is a conversion avaliable, see below "names_to_ids")
+convert_player_names_to_dc_ids = false
+# milliseconds between querying the server informations
+query_interval = 5000
+
+# this is used to show discord name instead of player name in notifications or /players commands
+[query_config.names_to_ids]
+# "<player name>" = "<discord id>" # e.g. "xX_GOD_Xx" = "107931478157033451"
+
+[mod_config]
+# milliseconds between checking for changes in mods
+check_interval = 20000

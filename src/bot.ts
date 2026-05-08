@@ -12,37 +12,30 @@ import {
 	SlashCommandOptionsOnlyBuilder,
 } from "discord.js";
 import { get_status } from "./api.ts";
+import { get_config } from "./config.ts";
 import { format_date, log, LOG_TAGS } from "./logging.ts";
 import { DB, QueryParameterSet, Row, RowObject } from "sqlite";
-import * as fs from "@std/fs";
-import * as path from "@std/path";
 import * as mod_watcher from "./mod_watcher.ts";
-import { clear_color_tags, compare_with_case, get_channel, get_seconds, human_readable_time, readable_time, zip } from "./utils.ts";
+import {
+	clear_color_tags,
+	compare_with_case,
+	get_channel,
+	get_seconds,
+	human_readable_time,
+	readable_time,
+	zip,
+} from "./utils.ts";
+import process from "node:process";
 
-// ----- start of user config -----
+const config = get_config();
 
-const DO_CONVERT_NAMES_TO_IDS = false;
-const PLAYER_NAMES_TO_DC_IDS_FILE_NAME = "names_to_ids.json";
-
-const CHECK_INTERVAL = 5000;
-
-// ----- end of user config -----
-
-const PLAYER_NAMES_TO_DC_IDS_FILE_PATH = path.resolve(path.join("db", PLAYER_NAMES_TO_DC_IDS_FILE_NAME));
-
-await fs.ensureDir("db");
-
-if (!await fs.exists(PLAYER_NAMES_TO_DC_IDS_FILE_PATH, { isFile: true, isReadable: true }))
-	await Deno.writeFile(PLAYER_NAMES_TO_DC_IDS_FILE_PATH, new TextEncoder().encode("{}"));
-
-const _player_names_to_ids = await import(PLAYER_NAMES_TO_DC_IDS_FILE_PATH, { with: { type: "json" } });
-const player_names_to_ids_map = new Map<string, string>(Object.entries(_player_names_to_ids.default));
+const player_names_to_ids_map = new Map<string, string>(Object.entries(config.query_configs.names_to_ids));
 
 const client = new Client({
 	intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.DirectMessages],
 });
 
-const db = new DB("db/player_data.sqlite");
+const db = new DB(config.constants.database_path);
 
 db.execute(`
 	create table if not exists players (
@@ -177,11 +170,12 @@ if (tmp_status) {
 }
 
 /**
- * Gets player discord id from minecraft name with help of `names_to_ids.json` file
+ * Gets player discord id from minecraft name with help of `names_to_ids` table from `config.toml`
+ * 
  * If `do_convert == false` this returns name
- * @param do_convert default value is `DO_CONVERT_NAMES_TO_IDS`
+ * @param do_convert default value is `convert_player_names_to_dc_ids` from `config.toml`
  */
-function get_user_id(name: string, do_convert: boolean = DO_CONVERT_NAMES_TO_IDS) {
+function get_user_id(name: string, do_convert: boolean = config.query_configs.convert_player_names_to_dc_ids) {
 	if (!do_convert || !player_names_to_ids_map.has(name)) return name;
 	return `<@${player_names_to_ids_map.get(name)}>`;
 }
@@ -309,8 +303,8 @@ client.once(Events.ClientReady, async (client) => {
 
 		setTimeout(async function test() {
 			await check();
-			setTimeout(test, CHECK_INTERVAL);
-		}, CHECK_INTERVAL);
+			setTimeout(test, config.query_configs.query_interval);
+		}, config.query_configs.query_interval);
 
 		await mod_watcher.init(client);
 	}
@@ -331,7 +325,7 @@ commands.set("players", {
 		)
 		.addBooleanOption((o) =>
 			o.setName("use_dc_names").setDescription(
-				`Should convert minecraft names to discord names? (Default: ${DO_CONVERT_NAMES_TO_IDS})`,
+				`Should convert minecraft names to discord names? (Default: ${config.query_configs.convert_player_names_to_dc_ids})`,
 			)
 		)
 		.addStringOption((o) =>
@@ -360,7 +354,7 @@ commands.set("players", {
 
 		const show_all = interaction.options.getBoolean("all_players", false) ?? true;
 		const show_counts = interaction.options.getBoolean("session_count", false) ?? true;
-		const use_dc_names = interaction.options.getBoolean("use_dc_names", false) ?? DO_CONVERT_NAMES_TO_IDS;
+		const use_dc_names = interaction.options.getBoolean("use_dc_names", false) ?? config.query_configs.convert_player_names_to_dc_ids;
 		const sort_by_chooser = interaction.options.getString("sort_by", false);
 
 		const sort_by_name = (a: PlayerData, b: PlayerData) => compare_with_case(a.name, b.name);

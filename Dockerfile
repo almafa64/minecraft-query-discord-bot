@@ -6,4 +6,6 @@ COPY deno.json .
 COPY deno.lock .
 RUN deno install
 
-RUN deno cache src/*.ts && chown deno /app
+RUN deno cache src/*.ts
+
+COPY config.toml .

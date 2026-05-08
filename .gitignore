@@ -4,3 +4,4 @@ logs
 *.db
 names_to_ids.json
 mod_names.json
+config.toml
