@@ -37,7 +37,7 @@
 			"write": [
 				"logs",
 				"data/mod_names.json",
-				"db/player_data.sqlite-journal",
+				"data/player_data.sqlite-journal",
 				"data/player_data.sqlite"
 			],
 			"net": true,
