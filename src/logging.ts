@@ -6,14 +6,10 @@ export function pad_number(num: number, digit = 2) {
 }
 
 /**
- * Formats a date object into the format `yyyy. mm. dd. hh:mm:ss`
+ * Formats a date object into ISO 8601 format
  */
 export function format_date(date: Date) {
-	// z as in "zero", want to keep return short
-	const z = pad_number;
-	return `${date.getFullYear()}.${z(date.getMonth() + 1)}.${z(date.getDate())}. ${z(date.getHours())}:${
-		z(date.getMinutes())
-	}:${z(date.getSeconds())}`;
+	return date.toISOString();
 }
 
 export enum LOG_TAGS {

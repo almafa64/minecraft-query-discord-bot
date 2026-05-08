@@ -1,0 +1,13 @@
+services:
+  minecraft-server-query:
+    build: .
+    image: minecraft-server-query:latest
+    container_name: minecraft-server-query
+    env_file:
+      - .env
+    volumes:
+      - ${HOSTER_BRANCH_PATH}:${HOSTER_BRANCH_PATH}:ro # comment this out if HOSTER_BRANCH_PATH is not set
+      - ./src:/app/src:ro
+      - ./db:/app/db:rw
+      - ./logs:/app/logs:rw
+    entrypoint: deno run main

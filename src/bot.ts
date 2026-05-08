@@ -19,21 +19,30 @@ import * as path from "@std/path";
 import * as mod_watcher from "./mod_watcher.ts";
 import { clear_color_tags, compare_with_case, get_channel, get_seconds, human_readable_time, readable_time, zip } from "./utils.ts";
 
+// ----- start of user config -----
+
 const DO_CONVERT_NAMES_TO_IDS = false;
 const PLAYER_NAMES_TO_DC_IDS_FILE_NAME = "names_to_ids.json";
 
 const CHECK_INTERVAL = 5000;
 
-if (!await fs.exists(PLAYER_NAMES_TO_DC_IDS_FILE_NAME, { isFile: true, isReadable: true }))
-	await Deno.writeFile(PLAYER_NAMES_TO_DC_IDS_FILE_NAME, new TextEncoder().encode("{}"));
+// ----- end of user config -----
 
-const _player_names_to_ids = await import(path.resolve(PLAYER_NAMES_TO_DC_IDS_FILE_NAME), { with: { type: "json" } });
+const PLAYER_NAMES_TO_DC_IDS_FILE_PATH = path.resolve(path.join("db", PLAYER_NAMES_TO_DC_IDS_FILE_NAME));
+
+await fs.ensureDir("db");
+
+if (!await fs.exists(PLAYER_NAMES_TO_DC_IDS_FILE_PATH, { isFile: true, isReadable: true }))
+	await Deno.writeFile(PLAYER_NAMES_TO_DC_IDS_FILE_PATH, new TextEncoder().encode("{}"));
+
+const _player_names_to_ids = await import(PLAYER_NAMES_TO_DC_IDS_FILE_PATH, { with: { type: "json" } });
 const player_names_to_ids_map = new Map<string, string>(Object.entries(_player_names_to_ids.default));
 
 const client = new Client({
 	intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.DirectMessages],
 });
-const db = new DB("player_data.sqlite");
+
+const db = new DB("db/player_data.sqlite");
 
 db.execute(`
 	create table if not exists players (
@@ -58,18 +67,19 @@ db.execute(`
 	) strict
 `);
 
-const insert_player = db.prepareQuery<Row, RowObject, { name: string }>(
-	"INSERT INTO players (name) VALUES (:name)",
-);
-
 const open_session = db.prepareQuery<Row, RowObject, { player_name: string; conn_time: number }>(
 	"INSERT INTO sessions (player_id, connect_time) VALUES ((select id from players where name = :player_name), :conn_time)",
 );
+
 const close_session = db.prepareQuery<Row, RowObject, { player_name: string; disconnect_time: number }>(
 	"update sessions set disconnect_time = :disconnect_time where player_id = (select id from players where name = :player_name) and disconnect_time is null",
 );
 
 type PlayerData = { name: string; time: number; count: number };
+
+const insert_player = db.prepareQuery<Row, RowObject, { name: string }>(
+	"INSERT INTO players (name) VALUES (:name)",
+);
 
 const get_player = db.prepareQuery<
 	[string, number, number],
@@ -107,6 +117,7 @@ const get_not_disconnected_players = db.prepareQuery<
 	group by players.id`,
 );
 
+// only used for players that are manually inserted into players table
 const get_all_not_yet_players = db.prepareQuery<
 	[string],
 	{ name: string },
@@ -230,6 +241,7 @@ async function check() {
 	if (!status)
 		return;
 
+	// TODO: move player notification to function --> send player noti before server stopped noti
 	if (status.players.length === states.last_players.size && status.players.every((v) => states.last_players.has(v)))
 		return;
 
@@ -255,6 +267,7 @@ async function check() {
 
 		const player_data = get_player.firstEntry({ name: v, time: cur_seconds });
 
+		// TODO: ?
 		if (player_data === undefined || player_data.time === null) {
 			insert_player.execute({ name: v });
 			open_session.execute({ conn_time: cur_seconds, player_name: v });

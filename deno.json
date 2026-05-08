@@ -22,10 +22,10 @@
 			"read": true,
 			"write": [
 				"logs",
-				"player_data.sqlite",
-				"player_data.sqlite-journal",
-				"names_to_ids.json",
-				"mod_names.json"
+				"db/player_data.sqlite",
+				"db/player_data.sqlite-journal",
+				"db/names_to_ids.json",
+				"db/mod_names.json"
 			],
 			"net": true,
 			"sys": [

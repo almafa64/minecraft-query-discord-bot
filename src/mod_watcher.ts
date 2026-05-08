@@ -4,11 +4,19 @@ import { format_date, log, LOG_TAGS } from "./logging.ts";
 import { Client, SendableChannels } from "discord.js";
 import { compare_with_case, get_channel } from "./utils.ts";
 
+// ----- start of user config -----
+
 const CHECK_INTERVAL = 20 * 1000;
 const MOD_NAMES_FILE_NAME = "mod_names.json";
 
-if (!await fs.exists(MOD_NAMES_FILE_NAME, { isFile: true, isReadable: true }))
-	await Deno.writeFile(MOD_NAMES_FILE_NAME, new TextEncoder().encode("{}"));
+// ----- end of user config -----
+
+const MOD_NAMES_FILE_PATH = path.resolve(path.join("db", MOD_NAMES_FILE_NAME));
+
+await fs.ensureDir("db");
+
+if (!await fs.exists(MOD_NAMES_FILE_PATH, { isFile: true, isReadable: true }))
+	await Deno.writeFile(MOD_NAMES_FILE_PATH, new TextEncoder().encode("{}"));
 
 let client: Client;
 
@@ -57,7 +65,7 @@ const mods_path_data = {
 	to_check: ModPathsToCheck.None,
 };
 
-const last_mods_data: ModsData = parse_mod_data(JSON.parse(await Deno.readTextFile(MOD_NAMES_FILE_NAME)));
+const last_mods_data: ModsData = parse_mod_data(JSON.parse(await Deno.readTextFile(MOD_NAMES_FILE_PATH)));
 
 await (async () => {
 	const hoster_branch_path = Deno.env.get("HOSTER_BRANCH_PATH");
@@ -300,7 +308,7 @@ async function check() {
 
 	if (last_mods_data.dirty) {
 		last_mods_data.dirty = false;
-		await Deno.writeTextFile(MOD_NAMES_FILE_NAME, stringify_mod_data(last_mods_data), { create: true });
+		await Deno.writeTextFile(MOD_NAMES_FILE_PATH, stringify_mod_data(last_mods_data), { create: true });
 	}
 }
 
