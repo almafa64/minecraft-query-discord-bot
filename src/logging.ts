@@ -51,7 +51,7 @@ async function setup_logging() {
 
 /**
  * Log msg to console and into a file
- * @param file if undefined makes a custom log file (based on {@link get_log_name})
+ * @param file if undefined, creates a log file based on {@link get_log_name}
  */
 export async function tee(msg: string, file?: Deno.FsFile) {
 	console.log(msg);
@@ -68,7 +68,7 @@ export async function tee(msg: string, file?: Deno.FsFile) {
 }
 
 /**
- * Logs to console and log file in format `"[hhhh. mm. dd. hh:mm:ss] [<tag>]<padding space if needed> <job>"` (time is local timezone)
+ * Logs to console and log file in format `"[ISO 8601 format time] [<tag>]<padding space if needed> <job>"` (time is UTC timezone)
  */
 export async function log(tag: LOG_TAGS, job: string) {
 	const date = new Date();

@@ -171,7 +171,7 @@ if (tmp_status) {
 
 /**
  * Gets player discord id from minecraft name with help of `names_to_ids` table from `config.toml`
- * 
+ *
  * If `do_convert == false` this returns name
  * @param do_convert default value is `convert_player_names_to_dc_ids` from `config.toml`
  */
@@ -354,7 +354,8 @@ commands.set("players", {
 
 		const show_all = interaction.options.getBoolean("all_players", false) ?? true;
 		const show_counts = interaction.options.getBoolean("session_count", false) ?? true;
-		const use_dc_names = interaction.options.getBoolean("use_dc_names", false) ?? config.query_configs.convert_player_names_to_dc_ids;
+		const use_dc_names = interaction.options.getBoolean("use_dc_names", false) ??
+			config.query_configs.convert_player_names_to_dc_ids;
 		const sort_by_chooser = interaction.options.getString("sort_by", false);
 
 		const sort_by_name = (a: PlayerData, b: PlayerData) => compare_with_case(a.name, b.name);

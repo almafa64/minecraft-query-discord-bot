@@ -8,4 +8,4 @@ RUN deno install
 
 RUN deno cache src/*.ts
 
-COPY config.toml .
+COPY config.toml* .

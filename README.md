@@ -4,11 +4,20 @@ A random dc bot I wrote for my minecraft server, so my friends can know who is i
 
 ## Running
 1. Install [deno](https://github.com/denoland/deno/)
-2. (optional, extra configuration) Copy/rename `config.toml.sample` to `config.toml`
+2. (optional) Copy/rename `config.toml.sample` to `config.toml` and edit it
 3. Run `deno run main` (if it needs permission, allow/decline them or run `deno run main_unsecure` instead)
 
+## Running with docker
+1. (optional) Copy/rename `config.toml.sample` to `config.toml` and edit it
+2. Edit `docker-compose.yaml` and follow the comments (tldr: comment out those lines if they aren't set in `.env`)
+3. Run `docker compose up`
+
+To stop container run `docker compose down`
+
+If you later change `config.toml` or `deno.json`/`deno.lock` then run `docker compose build` before running `docker compose up` again
+
 ## Environment settings
-use `.env` file or set them from terminal<br>
+Use `.env` file or set them from terminal<br>
 (mod hoster = [my mod hoster server](https://github.com/almafa64/minecraft-mod-hoster))
 ```ini
 TOKEN="<bot token>"

@@ -20,7 +20,7 @@ export function get_seconds(date?: Date) {
 
 /**
  * Returns seconds in a readable format in format `"xh ym zs"`
- * if part is 0 (e.g. h == 0) then it's left out
+ * if a part is 0 (e.g. h == 0) then it's left out
  * @returns string in format `"xh ym zs"` or if seconds is negative `"error: <seconds>"`
  */
 export function human_readable_time(seconds: number) {
