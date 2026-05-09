@@ -1,4 +1,4 @@
-import { Client, SendableChannels } from "discord.js";
+import { Client, SendableChannels, TextChannel } from "discord.js";
 import { log, LOG_TAGS } from "./logging.ts";
 
 const MC_CHANNEL = Deno.env.get("MC_CHANNEL");
@@ -104,8 +104,7 @@ export async function get_channel(client: Client) {
 	}
 
 	_ch = send_ch as SendableChannels;
-	// TODO: get name
-	await log(LOG_TAGS.INFO, `Using channel '${_ch.id}' for notifications.`);
+	await log(LOG_TAGS.INFO, `Using channel '#${(_ch as TextChannel).name}' (${_ch.id}) for notifications.`);
 
 	return _ch;
 }
