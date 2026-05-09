@@ -1,15 +1,19 @@
 import path from "node:path";
 import { get_config } from "./config.ts";
+import { log, LOG_TAGS, create_new_log } from "./logging.ts";
 import * as fs from "@std/fs";
 import * as toml from "@std/toml";
 
 const config = get_config();
+const migrate_log = await create_new_log("migrate.log");
 
 async function migrate_before_data_folder() {
 	// get_config() will make the data folder so cant check if that doesnt exists
 
 	if (Deno.readDirSync(config.constants.data_folder_path).toArray().length != 0)
 		return;
+
+	await log(LOG_TAGS.INFO, "Migrating to data folder setup", migrate_log);
 
 	const mod_names_path = path.resolve("mod_names.json");
 	if (fs.existsSync(mod_names_path))

@@ -33,18 +33,26 @@ function get_log_name() {
 	}-${z(date.getSeconds())}.log`;*/
 }
 
-let _log_file: Deno.FsFile | undefined = undefined;
-async function setup_logging() {
-	if(_log_file) return _log_file;
-
+/**
+ * @param name if undefined, creates a log file based on {@link get_log_name}
+ */
+export async function create_new_log(name?: string) {
 	const LOGS_DIR_PATH = path.resolve("./logs");
 
 	await fs.ensureDir(LOGS_DIR_PATH);
-	_log_file = await Deno.open(path.join(LOGS_DIR_PATH, get_log_name()), {
+
+	return await Deno.open(path.join(LOGS_DIR_PATH, name || get_log_name()), {
 		write: true,
 		create: true,
 		truncate: true,
 	});
+}
+
+let _log_file: Deno.FsFile | undefined = undefined;
+async function setup_logging() {
+	if (_log_file) return _log_file;
+
+	_log_file = await create_new_log();
 
 	return _log_file;
 }
@@ -59,18 +67,17 @@ export async function tee(msg: string, file?: Deno.FsFile) {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(msg + "\n");
 
-	if (file)
-		await file.write(data);
-	else {
-		const log_file = await setup_logging();
-		await log_file.write(data);
-	}
+	if (!file)
+		file = await setup_logging();
+
+	await file.write(data);
 }
 
 /**
  * Logs to console and log file in format `"[ISO 8601 format time] [<tag>]<padding space if needed> <job>"` (time is UTC timezone)
+ * @param file if undefined, creates a log file based on {@link get_log_name}
  */
-export async function log(tag: LOG_TAGS, job: string) {
+export async function log(tag: LOG_TAGS, job: string, file?: Deno.FsFile) {
 	const date = new Date();
-	await tee(`[${format_date(date)}] [${tag}]${" ".padEnd(LONGEST_TAG_LENGTH - tag.length + 1)}${job}`);
+	await tee(`[${format_date(date)}] [${tag}]${" ".padEnd(LONGEST_TAG_LENGTH - tag.length + 1)}${job}`, file);
 }
