@@ -261,13 +261,10 @@ async function check() {
 
 		const player_data = get_player.firstEntry({ name: v, time: cur_seconds });
 
-		// TODO: ?
-		if (player_data === undefined || player_data.time === null) {
+		if (player_data?.name == null)
 			insert_player.execute({ name: v });
-			open_session.execute({ conn_time: cur_seconds, player_name: v });
-		} else {
-			open_session.execute({ conn_time: cur_seconds, player_name: v });
-		}
+
+		open_session.execute({ conn_time: cur_seconds, player_name: v });
 	});
 
 	let msg = "";
