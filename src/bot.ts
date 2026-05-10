@@ -60,22 +60,22 @@ db.execute(`
 	) strict
 `);
 
-const open_session = db.prepareQuery<Row, RowObject, { player_name: string; conn_time: number }>(
+const open_session = db.prepareQuery<never, never, { player_name: string; conn_time: number }>(
 	"INSERT INTO sessions (player_id, connect_time) VALUES ((select id from players where name = :player_name), :conn_time)",
 );
 
-const close_session = db.prepareQuery<Row, RowObject, { player_name: string; disconnect_time: number }>(
+const close_session = db.prepareQuery<never, never, { player_name: string; disconnect_time: number }>(
 	"update sessions set disconnect_time = :disconnect_time where player_id = (select id from players where name = :player_name) and disconnect_time is null",
 );
 
 type PlayerData = { name: string; time: number; count: number };
 
-const insert_player = db.prepareQuery<Row, RowObject, { name: string }>(
+const insert_player = db.prepareQuery<never, never, { name: string }>(
 	"INSERT INTO players (name) VALUES (:name)",
 );
 
 const get_player = db.prepareQuery<
-	[string, number, number],
+	never,
 	PlayerData,
 	{ time: number; name: string }
 >(
@@ -87,7 +87,7 @@ const get_player = db.prepareQuery<
 );
 
 const get_all_players = db.prepareQuery<
-	[string, number, number],
+	never,
 	PlayerData,
 	{ time: number }
 >(
@@ -99,9 +99,9 @@ const get_all_players = db.prepareQuery<
 );
 
 const get_not_disconnected_players = db.prepareQuery<
-	[string, number],
+	never,
 	{ name: string; connect_time: number },
-	QueryParameterSet
+	never
 >(
 	`SELECT players.name as name,
 	sessions.connect_time as connect_time
@@ -112,22 +112,22 @@ const get_not_disconnected_players = db.prepareQuery<
 
 // only used for players that are manually inserted into players table
 const get_all_not_yet_players = db.prepareQuery<
-	[string],
+	never,
 	{ name: string },
-	QueryParameterSet
+	never
 >(
 	`SELECT name from players left join sessions on sessions.player_id = players.id where sessions.player_id is null;`,
 );
 
-const server_open_session = db.prepareQuery<Row, RowObject, { conn_time: number }>(
+const server_open_session = db.prepareQuery<never, never, { conn_time: number }>(
 	"INSERT INTO server_sessions (connect_time) VALUES (:conn_time)",
 );
-const server_close_session = db.prepareQuery<Row, RowObject, { disconnect_time: number }>(
+const server_close_session = db.prepareQuery<never, never, { disconnect_time: number }>(
 	"update server_sessions set disconnect_time = :disconnect_time where disconnect_time is null",
 );
 
 const get_server = db.prepareQuery<
-	[number, number],
+	never,
 	{ time: number; count: number },
 	{ time: number }
 >(
@@ -136,7 +136,7 @@ const get_server = db.prepareQuery<
 	from server_sessions`,
 );
 
-const get_server_last_conn = db.prepareQuery<[number], { time: number }, QueryParameterSet>(
+const get_server_last_conn = db.prepareQuery<never, { time: number }, never>(
 	`select max(connect_time) as time from server_sessions`,
 );
 
@@ -160,10 +160,11 @@ if (tmp_status) {
 	states.is_server_up = true;
 
 	// open a session if server is already up and there is no opened session
-	if (get_server_last_conn.first() === undefined)
+	if (get_server_last_conn.firstEntry() === undefined)
 		server_open_session.execute({ conn_time: get_seconds() });
 
 	states.name = clear_color_tags(tmp_status.hostname);
+
 	get_not_disconnected_players.allEntries().forEach((v) => {
 		states.last_players.set(v.name, v.connect_time);
 	});
@@ -423,7 +424,7 @@ commands.set("players", {
 				out += ")";
 			}
 
-			const db_not_yet_players = get_all_not_yet_players.all().map((v) => v[0]);
+			const db_not_yet_players = get_all_not_yet_players.allEntries().map((v) => v.name);
 			for (const player of db_not_yet_players) {
 				out += `\n1. **${get_user_id(player)}** (total: never played`;
 				out += show_counts ? `, joined 0 times, 0h/session` : "";
