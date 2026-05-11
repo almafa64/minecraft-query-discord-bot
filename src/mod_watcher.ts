@@ -1,9 +1,9 @@
 import * as fs from "@std/fs";
 import * as path from "@std/path";
 import { get_config } from "./config.ts";
-import { format_date, log, LOG_TAGS } from "./logging.ts";
+import { log, LOG_TAGS } from "./logging.ts";
 import { Client, SendableChannels } from "discord.js";
-import { compare_with_case, get_channel } from "./utils.ts";
+import { compare_with_case, format_date, get_channel } from "./utils.ts";
 
 const config = get_config();
 
@@ -251,7 +251,7 @@ async function check_hoster(cur_date: Date, send_ch: SendableChannels) {
 				break;
 		}
 
-		let msg = `**Hoster's ${name} mods changed** (${format_date(cur_date)}):\n`;
+		let msg = `**Hoster's ${name} mods changed** (${format_date(cur_date, config.global_configs.time_format)}):\n`;
 		msg += diff_to_msg(added_mod_names, removed_mod_names);
 
 		for (const slice of split_for_discord(msg))
@@ -280,7 +280,7 @@ async function check_server(cur_date: Date, send_ch: SendableChannels) {
 
 	last_mods_data.server = mod_names;
 
-	let msg = `**Server's mods changed** (${format_date(cur_date)}):\n`;
+	let msg = `**Server's mods changed** (${format_date(cur_date, config.global_configs.time_format)}):\n`;
 	msg += diff_to_msg(added_mod_names, removed_mod_names);
 
 	for (const slice of split_for_discord(msg))

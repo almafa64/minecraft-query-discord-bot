@@ -57,6 +57,7 @@
 		"migrate": "deno run -P=migrate src/migrate.ts"
 	},
 	"imports": {
+		"@std/datetime": "jsr:@std/datetime@^0.225.7",
 		"@std/dotenv": "jsr:@std/dotenv@^0.225.6",
 		"@std/fs": "jsr:@std/fs@^1.0.23",
 		"@std/path": "jsr:@std/path@^1.1.4",

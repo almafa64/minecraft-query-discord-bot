@@ -2,6 +2,10 @@ import * as toml from "@std/toml";
 import * as fs from "@std/fs";
 import * as path from "@std/path";
 
+export type GlobalConfigs = {
+	time_format: string;
+};
+
 export type QueryConfigs = {
 	convert_player_names_to_dc_ids: boolean;
 	query_interval: number;
@@ -20,6 +24,7 @@ export type ConstantConfigs = {
 };
 
 export type AppConfig = {
+	global_configs: GlobalConfigs;
 	query_configs: QueryConfigs;
 	mod_configs: ModConfigs;
 	constants: ConstantConfigs;
@@ -39,6 +44,9 @@ function load_config() {
 		config = {} as AppConfig;
 	else
 		config = toml.parse(Deno.readTextFileSync(CONFIG_PATH)) as AppConfig;
+
+	config.global_configs ??= {} as GlobalConfigs;
+	config.global_configs.time_format ??= "yyyy-MM-dd HH:mm:ss";
 
 	config.query_configs ??= {} as QueryConfigs;
 	config.query_configs.convert_player_names_to_dc_ids ??= false;

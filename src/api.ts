@@ -3,8 +3,8 @@ import { log, LOG_TAGS } from "./logging.ts";
 import "@std/dotenv/load";
 
 const MAGIC = 0xFEFD;
-const HOSTNAME = Deno.env.get("HOST") || "127.0.0.1";
-const PORT = parseInt(Deno.env.get("PORT") || "25565");
+const HOSTNAME = Deno.env.get("HOST") ?? "127.0.0.1";
+const PORT = parseInt(Deno.env.get("PORT") ?? "25565");
 
 const HandshakeReq = new Parser()
 	.uint16be("magic", { assert: MAGIC })
@@ -123,13 +123,13 @@ export async function get_status(id: number) {
 
 		clearTimeout(timout);
 		listener.close();
-		
+
 		return status_resp;
 	} catch (e) {
 		if (!(e instanceof Deno.errors.Interrupted)) {
 			clearTimeout(timout);
 
-			const msg = (e instanceof Error ? e.stack : undefined) || e;
+			const msg = (e instanceof Error ? e.stack : undefined) ?? e;
 			await log(LOG_TAGS.ERROR, `error while trying to query server: ${msg}`);
 		}
 

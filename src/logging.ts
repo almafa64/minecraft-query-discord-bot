@@ -1,16 +1,6 @@
 import * as path from "@std/path";
 import * as fs from "@std/fs";
-
-export function pad_number(num: number, digit = 2) {
-	return num.toString().padStart(digit, "0");
-}
-
-/**
- * Formats a date object into ISO 8601 format
- */
-export function format_date(date: Date) {
-	return date.toISOString();
-}
+import { format_date } from "./utils.ts";
 
 export enum LOG_TAGS {
 	INFO = "info",
@@ -41,7 +31,7 @@ export async function create_new_log(name?: string) {
 
 	await fs.ensureDir(LOGS_DIR_PATH);
 
-	return await Deno.open(path.join(LOGS_DIR_PATH, name || get_log_name()), {
+	return await Deno.open(path.join(LOGS_DIR_PATH, name ?? get_log_name()), {
 		write: true,
 		create: true,
 		truncate: true,

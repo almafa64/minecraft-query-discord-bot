@@ -13,12 +13,13 @@ import {
 } from "discord.js";
 import { get_status } from "./api.ts";
 import { get_config } from "./config.ts";
-import { format_date, log, LOG_TAGS } from "./logging.ts";
-import { DB, QueryParameterSet, Row, RowObject } from "sqlite";
+import { log, LOG_TAGS } from "./logging.ts";
+import { DB } from "sqlite";
 import * as mod_watcher from "./mod_watcher.ts";
 import {
 	clear_color_tags,
 	compare_with_case,
+	format_date,
 	get_channel,
 	get_seconds,
 	human_readable_time,
@@ -189,7 +190,7 @@ async function check() {
 
 	const cur_time = new Date();
 	const cur_seconds = get_seconds(cur_time);
-	const formatted_time = format_date(cur_time);
+	const formatted_time = format_date(cur_time, config.global_configs.time_format);
 
 	if (status)
 		states.name = clear_color_tags(status.hostname);
@@ -297,7 +298,7 @@ client.once(Events.ClientReady, async (client) => {
 
 	const ch = await get_channel(client);
 	if (ch) {
-		await ch.send("bot is **up**!");
+		await ch.send(`bot is **up**! (${format_date(new Date(), config.global_configs.time_format)})`);
 
 		setTimeout(async function test() {
 			await check();

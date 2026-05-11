@@ -1,15 +1,20 @@
 # these are the default settings
 
-[query_config]
+[global_configs]
+# this is used in discord messages
+# you can find the format options here https://jsr.io/@std/datetime/doc/format/~/format
+time_format = "yyyy-MM-dd HH:mm:ss"
+
+[query_configs]
 # if true then all bot messages will have discord names instead of player names (if there is a conversion avaliable, see below "names_to_ids")
 convert_player_names_to_dc_ids = false
 # milliseconds between querying the server informations
 query_interval = 5000
 
 # this is used to show discord name instead of player name in notifications or /players commands
-[query_config.names_to_ids]
+[query_configs.names_to_ids]
 # "<player name>" = "<discord id>" # e.g. "xX_GOD_Xx" = "107931478157033451"
 
-[mod_config]
+[mod_configs]
 # milliseconds between checking for changes in mods
 check_interval = 20000

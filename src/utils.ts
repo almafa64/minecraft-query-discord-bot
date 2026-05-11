@@ -1,7 +1,13 @@
 import { Client, SendableChannels, TextChannel } from "discord.js";
 import { log, LOG_TAGS } from "./logging.ts";
+import { format } from "@std/datetime/format";
 
-const MC_CHANNEL = Deno.env.get("MC_CHANNEL");
+/**
+ * Converts `num` to a string and pads left with '0' until string length == `digit`
+ */
+export function left_pad_number(num: number, digit = 2) {
+	return num.toString().padStart(digit, "0");
+}
 
 /**
  * Zips 2 array into 1, b is trimmed to a.length
@@ -59,6 +65,13 @@ export function readable_time(seconds: number, format: "h" | "m" | "s" = "h", di
 }
 
 /**
+ * Formats a date into local fmt or if undefined UTC ISO 8601 format
+ */
+export function format_date(date: Date, fmt?: string) {
+	return fmt ? format(date, fmt) : date.toISOString();
+}
+
+/**
  * Returns new string without minecraft color tags (§x)
  */
 export function clear_color_tags(tagged_string: string) {
@@ -85,6 +98,8 @@ let _ch: SendableChannels | undefined;
  */
 export async function get_channel(client: Client) {
 	if (_ch) return _ch;
+
+	const MC_CHANNEL = Deno.env.get("MC_CHANNEL");
 
 	let send_ch = client.channels.cache.get(MC_CHANNEL ?? "");
 	if (send_ch === undefined) {
