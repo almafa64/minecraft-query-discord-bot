@@ -141,6 +141,12 @@ const get_server_last_conn = db.prepareQuery<never, { time: number }, never>(
 	`select max(connect_time) as time from server_sessions`,
 );
 
+// its a word play on 'get_not_disconnected_players'
+// this is only used to check whether there is an open server session
+const get_not_disconnected_server = db.prepareQuery<never, { time: number }, never>(
+	`select max(connect_time) as time from server_sessions where disconnect_time is null`,
+);
+
 const states = {
 	is_server_up: false,
 	last_players: new Map<string, number>(),
@@ -161,7 +167,7 @@ if (tmp_status) {
 	states.is_server_up = true;
 
 	// open a session if server is already up and there is no opened session
-	if (get_server_last_conn.firstEntry() === undefined)
+	if (get_not_disconnected_server.firstEntry() == undefined)
 		server_open_session.execute({ conn_time: get_seconds() });
 
 	states.name = clear_color_tags(tmp_status.hostname);
@@ -170,6 +176,7 @@ if (tmp_status) {
 		states.last_players.set(v.name, v.connect_time);
 	});
 }
+// TODO: else: close last session?
 
 /**
  * Gets player discord id from minecraft name with help of `names_to_ids` table from `config.toml`
