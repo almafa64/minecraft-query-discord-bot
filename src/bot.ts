@@ -453,13 +453,8 @@ commands.set("server", {
 	execute: async (interaction) => {
 		const status = await get_status(2);
 
-		if (!status) {
-			await interaction.reply(`Server is offline!`);
-			return;
-		}
-
 		const cur_seconds = get_seconds();
-		const server_name = clear_color_tags(status.hostname);
+		const server_name = status ? clear_color_tags(status.hostname) : states.name;
 		const show_counts = interaction.options.getBoolean("session_count", false) ?? true;
 		const show_info = interaction.options.getBoolean("server_info", false) ?? true;
 
@@ -478,14 +473,14 @@ commands.set("server", {
 			count = server_data.count;
 		}
 
-		let out = `**Current status of '${server_name}'**:\n`;
+		let out = `**${status ? "Current" : "Last known** (because server is offline)**"} status of '${server_name}'**:\n`;
 
 		if (show_info) {
-			out += `- **Version**: ${status.version}\n`;
-			out += `- **Map**: ${status.map}\n`;
-			out += `- **Player count/limit**: ${status.numplayers}/${status.maxplayers}\n`;
+			out += `- **Version**: ${status?.version ?? "unknown"}\n`;
+			out += `- **Map**: ${status?.map ?? "unknown"}\n`;
+			out += `- **Player count/limit**: ${status?.numplayers ?? "0"}/${status?.maxplayers ?? "unknown"}\n`;
 			out += `- **Current players**: `;
-			if (status.players.length != 0)
+			if (status && status.players.length != 0)
 				out += `*${status.players.toSorted().map((v) => get_user_id(v)).join("*, *")}*`;
 			out += "\n";
 		}
