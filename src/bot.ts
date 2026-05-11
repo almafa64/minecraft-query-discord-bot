@@ -84,7 +84,8 @@ const get_player = db.prepareQuery<
 	COUNT(sessions.player_id) as count,
 	SUM((CASE WHEN sessions.disconnect_time is null then :time else sessions.disconnect_time end) - sessions.connect_time) as time
 	from players join sessions on sessions.player_id = players.id
-	where players.name = :name`,
+	where players.name = :name
+	having count > 0`,
 );
 
 const get_all_players = db.prepareQuery<
@@ -96,7 +97,8 @@ const get_all_players = db.prepareQuery<
 	COUNT(sessions.player_id) as count,
 	SUM((CASE WHEN sessions.disconnect_time is null then :time else sessions.disconnect_time end) - sessions.connect_time) as time
 	from players join sessions on sessions.player_id = players.id
-	group by players.id`,
+	group by players.id
+	having count > 0`,
 );
 
 const get_not_disconnected_players = db.prepareQuery<
@@ -270,7 +272,7 @@ async function check() {
 
 		const player_data = get_player.firstEntry({ name: v, time: cur_seconds });
 
-		if (player_data?.name == null)
+		if (player_data == null)
 			insert_player.execute({ name: v });
 
 		open_session.execute({ conn_time: cur_seconds, player_name: v });
@@ -403,10 +405,8 @@ commands.set("players", {
 				if (join_time)
 					diff_in_s = cur_seconds - join_time;
 
-				if (player) {
-					total_s = player.time;
-					count = player.count;
-				}
+				total_s = player.time;
+				count = player.count;
 
 				out += `\n1. **${get_user_id(player.name, use_dc_names)}** (current online time: ${
 					human_readable_time(diff_in_s)
@@ -422,10 +422,8 @@ commands.set("players", {
 				let total_s = -1;
 				let count = -1;
 
-				if (player) {
-					total_s = player.time;
-					count = player.count;
-				}
+				total_s = player.time;
+				count = player.count;
 
 				out += `\n1. **${get_user_id(player.name, use_dc_names)}** (total: ${human_readable_time(total_s)}`;
 				out += show_counts ? `, joined ${count} times, ${readable_time(total_s / count)}h/session` : "";
