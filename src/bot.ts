@@ -322,6 +322,24 @@ client.once(Events.ClientReady, async (client) => {
 	}
 });
 
+async function handle_exit(code: number, error: unknown = "", origin: unknown = "") {
+	const ch = await get_channel(client);
+	await ch?.send(`Bot is **down**! (${format_date(new Date(), config.global_configs.time_format)})`);
+
+	if (code >= 10) {
+		await log(LOG_TAGS.ERROR, `bot stopped with code '${code}', error: ${error}, origin: ${origin}`);
+		process.exit(1);
+	} else {
+		process.exit(0);
+	}
+}
+
+process.addListener("exit", async () => await handle_exit(0));
+process.addListener("SIGINT", async () => await handle_exit(1));
+process.addListener("SIGTERM", async () => await handle_exit(2));
+process.addListener("uncaughtException", async (err, origin) => await handle_exit(10, err, origin));
+process.addListener("unhandledRejection", async (reason, p) => await handle_exit(11, reason, p));
+
 interface Command {
 	data: SlashCommandOptionsOnlyBuilder;
 	execute(interaction: ChatInputCommandInteraction): Promise<void>;
