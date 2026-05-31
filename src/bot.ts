@@ -8,10 +8,11 @@ import {
 	REST,
 	RESTPostAPIChatInputApplicationCommandsJSONBody,
 	Routes,
+	SendableChannels,
 	SlashCommandBuilder,
 	SlashCommandOptionsOnlyBuilder,
 } from "discord.js";
-import { get_status } from "./api.ts";
+import { get_status, Status } from "./api.ts";
 import { get_config } from "./config.ts";
 import { log, LOG_TAGS } from "./logging.ts";
 import { DB } from "sqlite";
@@ -192,10 +193,66 @@ function get_user_id(name: string, do_convert: boolean = config.query_configs.co
 }
 
 async function check() {
+	async function check_players(status: Status, send_ch: SendableChannels) {
+		if (status.players.length === states.last_players.size && status.players.every((v) => states.last_players.has(v)))
+			return;
+
+		const cur_players = new Set(status.players);
+
+		const players_joined = [...cur_players].filter((v) => !states.last_players.has(v));
+		const players_left = [...states.last_players.keys()].filter((v) => !cur_players.has(v));
+
+		const player_time_diff_s = players_left.map((v) => {
+			const join_time = states.last_players.get(v);
+			if (join_time === undefined) return -1;
+			return cur_seconds - join_time;
+		});
+
+		players_left.forEach((v) => {
+			states.last_players.delete(v);
+
+			close_session.execute({ player_name: v, disconnect_time: cur_seconds });
+		});
+
+		players_joined.forEach((v) => {
+			states.last_players.set(v, cur_seconds);
+
+			const player_data = get_player.firstEntry({ name: v, time: cur_seconds });
+
+			if (player_data == null)
+				insert_player.execute({ name: v });
+
+			open_session.execute({ conn_time: cur_seconds, player_name: v });
+		});
+
+		let msg = "";
+
+		if (players_joined.length != 0) {
+			msg += `**Player(s) joined** (${formatted_time}):\n- ${
+				players_joined.toSorted(compare_with_case).map((v) => get_user_id(v)).join("\n- ")
+			}\n`;
+		}
+
+		if (players_left.length != 0) {
+			msg += `**Player(s) left** (${formatted_time}):\n`;
+			for (const [k, v] of zip(players_left, player_time_diff_s).toSorted((a, b) => b[1] - a[1])) {
+				// INFO: human_readable_time can return empty string if player joined and left under a second
+				msg += `- ${get_user_id(k)} (after ${human_readable_time(v)} of gaming)\n`;
+			}
+		}
+
+		if (parseInt(status.numplayers) > 0)
+			msg += `**Current players**: ${status.players.toSorted(compare_with_case).map((v) => get_user_id(v)).join(", ")}`;
+		else
+			msg += `Server is empty`;
+
+		await send_ch.send({ flags: MessageFlags.SuppressNotifications, content: msg });
+	}
+
 	const send_ch = await get_channel(client);
 	if (!send_ch) return;
 
-	let status = await get_status(1);
+	const status = await get_status(1);
 
 	const cur_time = new Date();
 	const cur_seconds = get_seconds(cur_time);
@@ -213,20 +270,8 @@ async function check() {
 		await send_ch.send(msg);
 		await log(LOG_TAGS.INFO, msg.replaceAll("*", ""));
 	} else if (states.is_server_up && !status) {
-		states.is_server_up = false;
-		server_close_session.execute({ disconnect_time: cur_seconds });
-
-		const server_last_up = get_server_last_conn.firstEntry();
-
-		let msg = `server **${states.name}** is **down** (${formatted_time})`;
-		if (server_last_up) msg += ` after ${human_readable_time(cur_seconds - server_last_up.time)}`;
-		msg += "!";
-
-		await send_ch.send(msg);
-		await log(LOG_TAGS.INFO, msg.replaceAll("*", ""));
-
-		// INFO: fabricate own status so player left code can be reused
-		status = {
+		// fabricate own status so player left code can be reused
+		await check_players({
 			"type": 0,
 			"id": 0,
 			"hostname": states.name,
@@ -240,66 +285,25 @@ async function check() {
 			"hostport": "",
 			"hostip": "",
 			"players": [],
-		};
-	}
+		}, send_ch);
 
-	if (!status)
+		states.is_server_up = false;
+		server_close_session.execute({ disconnect_time: cur_seconds });
+
+		const server_last_up = get_server_last_conn.firstEntry();
+
+		let msg = `server **${states.name}** is **down** (${formatted_time})`;
+		if (server_last_up) msg += ` after ${human_readable_time(cur_seconds - server_last_up.time)}`;
+		msg += "!";
+
+		await send_ch.send(msg);
+		await log(LOG_TAGS.INFO, msg.replaceAll("*", ""));
+
 		return;
-
-	// TODO: move player notification to function --> send player noti before server stopped noti
-	if (status.players.length === states.last_players.size && status.players.every((v) => states.last_players.has(v)))
-		return;
-
-	const cur_players = new Set(status.players);
-
-	const players_joined = [...cur_players].filter((v) => !states.last_players.has(v));
-	const players_left = [...states.last_players.keys()].filter((v) => !cur_players.has(v));
-
-	const player_time_diff_s = players_left.map((v) => {
-		const join_time = states.last_players.get(v);
-		if (join_time === undefined) return -1;
-		return cur_seconds - join_time;
-	});
-
-	players_left.forEach((v) => {
-		states.last_players.delete(v);
-
-		close_session.execute({ player_name: v, disconnect_time: cur_seconds });
-	});
-
-	players_joined.forEach((v) => {
-		states.last_players.set(v, cur_seconds);
-
-		const player_data = get_player.firstEntry({ name: v, time: cur_seconds });
-
-		if (player_data == null)
-			insert_player.execute({ name: v });
-
-		open_session.execute({ conn_time: cur_seconds, player_name: v });
-	});
-
-	let msg = "";
-
-	if (players_joined.length != 0) {
-		msg += `**Player(s) joined** (${formatted_time}):\n- ${
-			players_joined.toSorted(compare_with_case).map((v) => get_user_id(v)).join("\n- ")
-		}\n`;
 	}
 
-	if (players_left.length != 0) {
-		msg += `**Player(s) left** (${formatted_time}):\n`;
-		for (const [k, v] of zip(players_left, player_time_diff_s).toSorted((a, b) => b[1] - a[1])) {
-			// INFO: human_readable_time can return empty string if player joined and left under a second
-			msg += `- ${get_user_id(k)} (after ${human_readable_time(v)} of gaming)\n`;
-		}
-	}
-
-	if (parseInt(status.numplayers) > 0)
-		msg += `**Current players**: ${status.players.toSorted(compare_with_case).map((v) => get_user_id(v)).join(", ")}`;
-	else
-		msg += `Server is empty`;
-
-	await send_ch.send({ flags: MessageFlags.SuppressNotifications, content: msg });
+	if (status)
+		await check_players(status, send_ch);
 }
 
 client.once(Events.ClientReady, async (client) => {
